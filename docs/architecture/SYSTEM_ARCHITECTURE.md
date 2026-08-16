@@ -418,14 +418,21 @@ SQLite file on a mounted volume in WAL mode. `prisma migrate deploy` on boot.
 
 ---
 
-## 19. Open decisions this architecture assumes
+## 19. Decisions this architecture assumed — now resolved
 
-| ID | Assumed | Impact if wrong |
-|---|---|---|
-| `B-03` | `Member`, `Staff`, `Equipment`, attendance carry `branchId`; plans global (ADR-014) | **Touches nearly every table** |
-| `B-04` | `ENH-02`…`ENH-06` supply the five missing write paths | Six mandatory stories stay non-functional |
-| `B-05` | Four membership states (ADR-013) | State chart and `NFR-17` both wrong |
-| ADR-012 | Thresholds for the 15 unquantified NFRs | Invented numbers reported as requirements |
+Every assumption in this table has since been decided. **Two were decided against**, and the
+implementation follows the resolution, not the assumption below.
+
+| ID | Originally assumed here | Actual resolution | Effect on this document |
+|---|---|---|---|
+| `B-03` | `Member`, `Staff`, `Equipment`, attendance carry `branchId`; plans global (ADR-014) | ❌ **Changed** — branch is **non-isolating**; `Member`/`Staff.homeBranchId` **nullable**; equipment/attendance NOT NULL; plans global; no branch filter on any query path | Any passage above implying branch-scoped people is superseded |
+| `B-04` | `ENH-02`…`ENH-06` supply the five missing write paths | ✅ **Confirmed, with one removal** — `ENH-05` (`RefundRequest`) **WITHDRAWN**; approval captured as data on `Refund` | `RefundRequest` is not part of the system |
+| `B-05` | Four membership states (ADR-013) | ❌ **Changed** — **three** states: `ACTIVE`, `EXPIRED`, `CANCELLED`; `EXPIRING` derived | State chart and `NFR-17` follow the three-state machine |
+| `B-01`/`B-02` | *(not listed here originally)* | ✅ **Resolved** — members log in (`ENH-01`); six roles, deny-by-default (ADR-007) | Auth/RBAC design stands; **no code implements it yet** |
+| ADR-012 | Thresholds for the 15 unquantified NFRs | ✅ **Accepted** — 🟦 engineering thresholds, reported as `PASS (ENGINEERING THRESHOLD)` | Never cite a 🟦 figure as a source requirement |
+
+**Remaining open:** `B-06` (experiment numbering — labelling only), `ASM-09` (three golden
+rules, `DIA-12`), `AMB-10` (literature-survey case studies — EVIDENCE NOT AVAILABLE).
 
 ---
 

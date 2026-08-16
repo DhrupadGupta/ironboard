@@ -408,7 +408,7 @@ These 25 are the unit-level workflows. See `docs/requirements/LAB1_TRACEABILITY_
 | ID | Lifecycle | Composed of | Source |
 |---|---|---|---|
 | `WF-01` | **Member lifecycle** | trial (US-03) → register (US-01) → plan chosen (US-16) → active (US-20) → renew (US-18) / cancel (US-17) → expired | `[LAB1]`, `[HTML]` workflow |
-| `WF-02` | **Membership status machine** | Active → Expiring (7d, AC-19) → Expired → Renewed / Cancelled | `[LAB1]` AC-17, AC-18, AC-19, AC-20 |
+| `WF-02` | **Membership status machine** | *(as first derived)* Active → Expiring (7d, AC-19) → Expired → Renewed / Cancelled — ⚠️ **SUPERSEDED by `B-05`: three states only — `ACTIVE`, `EXPIRED`, `CANCELLED`. `EXPIRING` is a derived predicate, never a stored state, and `CANCELLED` is terminal. Build `DIA-07` / `DIA-10` from the `B-05` machine, not from this row.** | `[LAB1]` AC-17, AC-18, AC-19, AC-20 |
 | `WF-03` | **Payment lifecycle** | balance due → payment (cash/card/online) → receipt → invoice → *(refund)* / *(overdue → notice)* | `[LAB1]` AC-21, 22, 24, 25 |
 | `WF-04` | **Staff onboarding** | applicant registers → admin reviews → approve → activate + send login | `[LAB1]` AC-11 |
 | `WF-05` | **Equipment maintenance** | schedule set → reminder → "In Maintenance" → operational | `[LAB1]` AC-13 |
@@ -846,13 +846,19 @@ reserved for a third elevation level and a hover/pressed accent state.
 Every assumption below would be required to build. **None is stated in any source document.**
 They are listed here to be confirmed *before* implementation, not adopted silently.
 
+> ⚠️ **STATUS BANNER — added 2026-08-16.** Four assumptions below were **contradicted** by the
+> decisions that followed and are **WITHDRAWN**: `ASM-01` (`B-01` — members **do** log in),
+> `ASM-02` (`B-02` — **six** roles, not five), `ASM-05` (`B-03` — members are **not**
+> branch-scoped), `ASM-13` (`B-05` — **three** states, not four). They are kept verbatim as the
+> record of what was assumed before the decisions existed. **Do not implement against them.**
+
 | ID | Assumption | Resolves | Risk |
 |---|---|---|---|
-| `ASM-01` | Ironboard is a **staff-facing web application**; members have no login in v1 | AMB-02 | **HIGH** — halves or doubles scope |
-| `ASM-02` | The five departments map to five **role-based permission groups**, one per actor | AMB-03 | HIGH |
+| `ASM-01` | ~~Ironboard is a **staff-facing web application**; members have no login in v1~~ ❌ **WITHDRAWN** (`B-01`) | AMB-02 | **HIGH** — halves or doubles scope |
+| `ASM-02` | ~~The five departments map to five **role-based permission groups**, one per actor~~ ❌ **WITHDRAWN** (`B-02` — six roles incl. Member, deny-by-default) | AMB-03 | HIGH |
 | `ASM-03` | Authentication is username/email + password with server-side sessions | AMB-03 | MED |
 | `ASM-04` | A single shared datastore backs all five modules ("01 shared source of truth") | AMB-14 | MED |
-| `ASM-05` | Members are **branch-scoped**; staff may be assigned to one or more branches | AMB-05 | MED |
+| `ASM-05` | ~~Members are **branch-scoped**; staff may be assigned to one or more branches~~ ❌ **WITHDRAWN** (`B-03` — nullable `homeBranchId`, no isolation) | AMB-05 | MED |
 | `ASM-06` | Notifications are email-first; SMS is stubbed/logged rather than delivered | AMB-12 | LOW |
 | `ASM-07` | "Print receipt" means generate a printable PDF, consistent with AC-22 | AMB-16 | LOW |
 | `ASM-08` | The selected case study is the gym management system; `<case study name>` = "Ironboard" | AMB-10 | LOW |
@@ -860,7 +866,7 @@ They are listed here to be confirmed *before* implementation, not adopted silent
 | `ASM-10` | Unquantified NFRs adopt the nearest stated numeric peer (e.g. availability → 99.9 %) | AMB-06 | **HIGH** — invented thresholds |
 | `ASM-11` | Currency is INR; no tax modelling in v1 | INC-06 | MED |
 | `ASM-12` | Check-in is recorded by a receptionist action or a stub endpoint | AMB-15 | MED |
-| `ASM-13` | Membership states are exactly: Active, Expiring, Expired, Cancelled | AMB-07, WF-02 | MED |
+| `ASM-13` | ~~Membership states are exactly: Active, Expiring, Expired, Cancelled~~ ❌ **WITHDRAWN** (`B-05` — `ACTIVE`, `EXPIRED`, `CANCELLED`; `EXPIRING` derived) | AMB-07, WF-02 | MED |
 | `ASM-14` | "State chart" and "state transition diagram" are the same artefact, submitted once | AMB-08 | LOW |
 | `ASM-15` | Volt green `#cbff3d` is the final accent, superseding the blue and red screenshots | CON-06 | LOW — user-directed |
 | `ASM-16` | Deliverables are labelled by artefact name, not experiment number | CON-01 | MED |
@@ -885,7 +891,11 @@ Ideas only — **not requirements**, and not to be implemented without instructi
 ### 18.2 Architecture & data
 - **E-06** Model membership state (WF-02) as an explicit state machine — it directly feeds `DIA-07`/`DIA-10`.
 - **E-07** Introduce an audit log for payments, refunds and staff approvals (echoes the `[EXP2]` sample constraint pattern, and supports NFR-24).
-- **E-08** Make branch a first-class tenant boundary to satisfy NFR-12 cleanly.
+- ~~**E-08** Make branch a first-class tenant boundary to satisfy NFR-12 cleanly.~~
+  ⚠️ **REJECTED by `B-03`.** Branch is a **non-isolating descriptive attribute**; `US-12`
+  ("all locations … monitored from one system") argues against isolation. `NFR-12` is satisfied
+  by **indexing, not partitioning**. Nullable `homeBranchId` on people; NOT NULL `branchId` on
+  equipment and attendance; plans global; no branch filter on any query path.
 - **E-09** Extract notification dispatch behind an interface so email/SMS (AMB-12) is swappable.
 - **E-10** Encrypt medical notes and payment data at rest, satisfying NFR-10 and NFR-21 verifiably.
 

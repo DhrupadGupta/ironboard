@@ -1,6 +1,9 @@
 # Ironboard — Architectural Decision Records
 
-**Phase:** 1 — Master Plan · **Date:** 2026-08-16 · **Status:** Decided, nothing implemented.
+**Phase:** 1 — Master Plan · **Date:** 2026-08-16 · **Last reconciled with the implementation:**
+2026-08-16 · **Status:** Decided. **The database layer (ADR-005, ADR-011, ADR-013, ADR-014) is
+implemented and verified in Phase 3.** Every other ADR remains a design decision with no code
+behind it.
 
 Each ADR states context, decision, alternatives, consequences, and the **requirement that
 drives it**. Where a decision rests on an assumption rather than a source document, the `ASM`
@@ -278,44 +281,92 @@ Full detail: `docs/architecture/ADR-012-NFR-THRESHOLDS.md` and
 
 ## ADR-013 — Membership as an explicit state machine {#adr-013}
 
-**Status: PROVISIONAL — `B-05` unresolved.**
+**Status: FINAL — `B-05` RESOLVED. Superseded in substance by the `B-05` decision:
+three states, not four.** Implemented and verified in Phase 3.
+→ `docs/decisions/B-05_MEMBERSHIP_STATE_MACHINE.md`
 
 **Context.** `AC-20` filters on **two** states (Active, Expired). `AC-17` introduces
 **Cancelled**. `AC-19` implies **Expiring** (7-day threshold). **Lab 1 never defines the state
 set** (`AMB-07`).
 
-**Decision.** Four states — `Active` → `Expiring` → `Expired` → `Cancelled` — with transitions
-taken from `AC-17`, `AC-18`, `AC-19`, `AC-20`. This is the union of all stories (`ASM-13`).
+**Decision (as implemented).** **Exactly three persisted states — `ACTIVE`, `EXPIRED`,
+`CANCELLED`.** `EXPIRING` is a **derived predicate** over `expiresAt`, never a stored value:
+`AC-19` describes a temporal condition, not a status, and `AC-17`/`AC-20` quote only the other
+three as status values.
 
-**Consequences.** ✅ Directly produces the required state chart (`DIA-07`) and gives `NFR-17`
-("only **valid** inactive memberships") a decidable meaning. ⚠️ **`AC-20` only filters two of
-the four** — the UI must expose all four or contradict the criterion. ⚠️ Whether `Cancelled` is
-reversible is **not stated anywhere**; assumed terminal, pending `B-05`.
+Transition table, enforced at the database layer:
+
+| From | To |
+|---|---|
+| `ACTIVE` | `ACTIVE` (extend/renew, T6) · `EXPIRED` (T2) · `CANCELLED` (T3) |
+| `EXPIRED` | `ACTIVE` (renewal, T5) · `CANCELLED` (T4) |
+| `CANCELLED` | **terminal — no transition out** |
+
+**Enforcement.** Three independent mechanisms, none of them application code:
+a CHECK constraint on `Membership.state`; the `Membership_state_transition_guard` trigger
+(`RAISE(ABORT)` on any transition outside the table above); and the
+`Membership_one_active_per_member` partial unique index (`WHERE state = 'ACTIVE'`).
+
+**Consequences.** ✅ Produces the required state chart (`DIA-07`) and gives `NFR-17` ("only
+**valid** inactive memberships") a decidable meaning. ✅ `AC-20`'s two-state filter is satisfied
+without contradiction, because `EXPIRING` is a query rather than a fourth status the UI would
+have to expose. ⚠️ `CANCELLED` being terminal is **not stated in any source** — it is the
+`B-05` decision, and the trigger makes it irreversible in data.
+
+**Superseded text (retained for the record).** This ADR originally specified four states,
+`Active → Expiring → Expired → Cancelled` (`ASM-13`), and flagged that `AC-20` filters only two
+of them. That reading was rejected by the `B-05` review.
 
 **Drives:** `AC-17`–`AC-20`, `NFR-17`, `DIA-07`, `DIA-10`, `WF-02`.
+
+**Verified:** `T-U-020`, `T-U-040`–`T-U-042`, `T-U-044` · live counts `ACTIVE=725 EXPIRED=175
+CANCELLED=100`, zero rows in any other state.
 
 ---
 
 ## ADR-014 — Branch as a scoping column, not a tenant boundary {#adr-014}
 
-**Status: PROVISIONAL — `B-03` unresolved. Must be decided before the Phase 3 schema.**
+**Status: FINAL — `B-03` RESOLVED. Superseded in substance by the `B-03` decision:
+branch is a descriptive attribute, and people are NOT branch-isolated.** Implemented and
+verified in Phase 3. → `docs/decisions/B-03_DECISION.md`
 
 **Context.** `AC-12` manages branches; `NFR-12` requires supporting several "efficiently".
 **No source states whether members, staff, equipment or plans are branch-scoped** (`AMB-05`).
 
-**Decision (assumed, `ASM-05`).** `Member`, `Staff`, `Equipment` and attendance carry a
-`branchId`. `MembershipPlan` is **global**. No row-level tenancy isolation; scoping is enforced
-in queries and RBAC.
+**Decision (as implemented).** Branch is a **non-isolating descriptive attribute, not a tenant
+boundary.** `US-12` argues against isolation — "all locations … monitored from one system" —
+and no source sentence bars a member from using another branch.
 
-**Alternatives.** *Everything branch-scoped* — heavier, and no source demands it. *Branch as a
-display label only* — cheapest, but makes `NFR-12` meaningless.
+| Column | Implemented as | Why |
+|---|---|---|
+| `Member.homeBranchId` | **nullable** | a person's home branch is descriptive; membership is not branch-bound |
+| `Staff.homeBranchId` | **nullable** | same |
+| `Equipment.branchId` | **NOT NULL** | a machine is physically at one location |
+| `AttendanceEvent.branchId` | **NOT NULL** | a check-in happened at one location |
+| `AttendanceDaily.branchId` | **NOT NULL** | aggregate of the above |
+| `MembershipPlan` | **no branch column** | plans are global |
 
-**Consequences.** ✅ `NFR-12` becomes testable (10 branches × 1 000 members). ⚠️ **Retrofitting
-`branchId` later would touch nearly every table** — this is the single most expensive decision
-to get wrong, which is why it gates Phase 3. ⚠️ `AC-12` allows disabling a branch, and what
-happens to members attached to it is **undefined** (`INC-09`).
+**No row-level tenancy isolation exists, and no query path filters by branch.** `NFR-12` is
+satisfied by indexing, not by partitioning.
+
+**Alternatives rejected.** *Everything branch-scoped* — heavier, and no source demands it;
+it would also contradict `US-12`. *Branch as a display label only* — cheapest, but loses the
+physical-location facts that `AC-13` and `AC-14` genuinely need.
+
+**Consequences.** ✅ Cross-branch reads are the default, which is what `AC-15`'s all-department
+dashboard needs. ✅ `INC-09` (what happens to members of a disabled branch) is answered
+structurally: `homeBranchId` is `SET NULL`, and the member is unaffected. ⚠️ `NFR-12`
+"efficiently" remains unquantified in source (`INC-07`); the verification threshold is
+🟦 engineering, per ADR-012.
+
+**Superseded text (retained for the record).** This ADR originally assumed `ASM-05` — `Member`
+and `Staff` carrying a NOT NULL `branchId` — and warned that the decision "gates Phase 3".
+Both statements are obsolete: the `B-03` review reversed the nullability and Phase 3 shipped.
 
 **Drives:** `AC-12`, `NFR-12`, `B-03`, `R-05`.
+
+**Verified:** `T-I-050` · live data — 44 members and 1 staff carry `NULL`, attendance spans
+every branch in one query, `MembershipPlan` has no branch column.
 
 ---
 

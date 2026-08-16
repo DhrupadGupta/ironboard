@@ -39,8 +39,8 @@ engineering decision. No type or length is sourced (`INC-05`).
 
 ## Entities that exist only to unblock a Lab 1 story
 
-Six Lab 1 stories read data that **no story creates** (`B-04`, unresolved). These entities are
-enhancements; the stories they unblock are mandatory.
+Six Lab 1 stories read data that **no story creates**. `B-04` is **RESOLVED** and these entities
+are implemented; the entities are enhancements, the stories they unblock are mandatory.
 
 | Entity | Enhancement | Unblocks | Precondition text |
 |---|---|---|---|

@@ -2,7 +2,11 @@
 
 **Phase:** 1 — Master Plan
 **Date:** 2026-08-16
-**Status:** Planning only. **No application code exists.**
+**Status:** Plan of record. **Reconciled with the implementation 2026-08-16.** The database
+layer described in §10 is **built and verified**; §§8–9, 11–17 and 21–22 remain design with no
+code behind them. Where this plan's original text conflicts with what was built, the
+implementation and the `docs/decisions/` records govern — the conflicting passages are marked
+in place rather than silently rewritten.
 **Authority:** `docs/project/REFERENCE_ANALYSIS.md`, verified against the originals in `reference/`.
 
 ---
@@ -348,7 +352,7 @@ analysis.
 | `AttendanceEvent` | AC-14 | ⚠️ `ENH-02` — no story writes it |
 | `Equipment`, `MaintenanceSchedule` | AC-13 | ⚠️ `ENH-04` |
 | `Payment`, `Invoice`, `Receipt` | AC-21/22/04 | |
-| `RefundRequest`, `Refund` | AC-24 | ⚠️ `ENH-05` |
+| ~~`RefundRequest`~~, `Refund` | AC-24 | ⚠️ `ENH-05` **WITHDRAWN by `B-04`** — only `Refund` exists; approval is captured as data on it |
 | `LedgerEntry` | AC-23/24, NFR-24 | append-only |
 | `AuditEvent` | NFR-24, AC-23 | append-only (`ENH-13`) |
 | `NotificationOutbox` | AC-01/19/22 | async dispatch |
@@ -356,9 +360,24 @@ analysis.
 **Migrations** via `prisma migrate` — versioned and committed, never ad-hoc SQL.
 **Indexes** are added deliberately to serve `NFR-14` and `NFR-23`, not speculatively.
 
-⚠️ **`B-03` is unresolved.** Whether `Member`, `Staff`, `Equipment` and `MembershipPlan` carry
-a `branchId` changes nearly every table. The plan assumes `ASM-05` (members and staff
-branch-scoped; plans global) — **this needs confirmation before Phase 3.**
+✅ **`B-03` is RESOLVED and implemented** (this supersedes the `ASM-05` assumption this section
+originally carried — members and staff are **not** branch-scoped). Branch is a **non-isolating
+descriptive attribute**: `Member.homeBranchId` and `Staff.homeBranchId` are **nullable**;
+`Equipment.branchId`, `AttendanceEvent.branchId` and `AttendanceDaily.branchId` are NOT NULL
+(physical location); `MembershipPlan` carries **no** branch column. No row-level isolation
+exists and no query path filters by branch.
+→ `docs/decisions/B-03_DECISION.md`, ADR-014
+
+✅ **`B-05` is RESOLVED**: three states, not four — `ACTIVE`, `EXPIRED`, `CANCELLED`.
+`EXPIRING` is derived, never stored. → `docs/decisions/B-05_MEMBERSHIP_STATE_MACHINE.md`, ADR-013
+
+✅ **`B-04` is RESOLVED**: `ENH-05` (`RefundRequest`) was **withdrawn** — `AC-24` treats approval
+as an external precondition, captured as data on `Refund`. The `RefundRequest` row in the table
+above is therefore **not implemented and never will be**.
+→ `docs/decisions/B-04_API_DECISIONS.md`
+
+**Implemented:** 29 entities (not the count this section's table implies), 36 CHECK constraints,
+2 partial unique indexes, 7 triggers. See `docs/architecture/DATABASE_DESIGN.md`.
 
 ---
 
@@ -608,10 +627,10 @@ Ordered so each phase unblocks the next. Course Policy Lab 9 forces design befor
 
 | Phase | Name | Output | Gate |
 |---|---|---|---|
-| **0** | Analysis & skills | ✅ Analysis docs, 5 skills, CLAUDE.md | Done |
+| **0** | Analysis & skills | ✅ Analysis docs, **6 skills**, CLAUDE.md | Done |
 | **1** | **Master plan** | ✅ This document + ADRs + phase status | Done |
-| **2** | Requirements & design | Problem statement, feasibility, process model, development plan; `DIA-01`–`DIA-12`, `DIA-16` | **`B-03`, `B-04`, `B-05` must be decided** |
-| **3** | Foundation | Repo scaffold, Prisma schema + migrations, auth, RBAC, API skeleton, design-system primitives | Phase 2 diagrams |
+| **2** | Requirements & design | Problem statement, feasibility, process model, development plan; `DIA-01`–`DIA-12`, `DIA-16` | ✅ gate cleared — `B-03`, `B-04`, `B-05` all **RESOLVED** |
+| **3** | Foundation | Repo scaffold, Prisma schema + migrations, auth, RBAC, API skeleton, design-system primitives | ✅ **database subset COMPLETE**; auth / RBAC / API skeleton / design-system primitives remain (tracked as Phase 3b) |
 | **4** | Department modules | `D01`→`D04`→`D02`→`D05`→`D03` (dependency order) | Phase 3 |
 | **5** | Frontend | Module screens on the design system | Phase 3 primitives |
 | **6** | Cross-cutting | Notifications, reporting, audit log, scheduler | Phase 4 |
@@ -653,20 +672,23 @@ Diagrams (Phase 2) precede coding (Phase 4) per Course Policy Lab 9 — though `
 
 Carried from `docs/project/REQUIREMENT_GAP_ANALYSIS.md`, updated for this phase.
 
-| # | Risk | Severity | Mitigation |
+Status column reconciled with the implementation on 2026-08-16.
+
+| # | Risk | Severity | Status / mitigation |
 |---|---|---|---|
-| `R-01` | No auth model in any source | 🔴 | Resolved by decision (§11–12); recorded as `ASM-02`/`ASM-03` |
-| `R-02` | Member scope undecided | 🔴 | **Resolved** — Member is a role (`ENH-01`), excluded from academic coverage |
-| `R-03` | Five missing write paths | 🔴 | `ENH-02`…`ENH-06`; **`B-04` still needs confirmation** |
-| `R-04` | No data model | 🔴 | §10 + `DIA-16`; every attribute is an assumption |
-| `R-05` | Branch scoping undefined | 🟠 | `ASM-05` assumed; **`B-03` must be decided before Phase 3** |
-| `R-06` | 15 NFRs untestable | 🟠 | ADR-012 proposes thresholds; reported as `PASS (ASSUMED)` |
-| `R-08` | Membership state set undefined | 🟠 | `ASM-13` four states; **`B-05` before Phase 2 state chart** |
-| `R-09` | Payment gateway unnamed | 🟠 | Not integrated; "online" is a recorded method only |
-| `R-10` | No negative paths | 🟠 | `ENH-09`, clearly labelled |
-| `R-19` | **Scope inflation via `ENH-01`** | 🟠 | Member portal must never be counted as academic coverage |
-| `R-20` | **Prisma + SQLite migration drift** | 🟡 | Migrations committed and applied in CI on a clean DB |
-| `R-07` | Experiment numbering (`CON-01`) | 🟠 | Label by artefact, never bare number |
+| `R-01` | No auth model in any source | 🔴 | ✅ **Closed by decision** — `B-01`/`B-02` resolved (§11–12, ADR-006, ADR-007); recorded as `ASM-02`/`ASM-03`. **No auth code exists yet** — the decision is made, the implementation is Phase 3b |
+| `R-02` | Member scope undecided | 🔴 | ✅ **Closed** — `B-01` resolved: members log in; Member is a role (`ENH-01`), excluded from academic coverage |
+| `R-03` | Five missing write paths | 🔴 | ✅ **Closed** — `B-04` resolved. `ENH-02`/`03`/`04`/`06`/`07` kept and their tables exist; **`ENH-05` withdrawn** |
+| `R-04` | No data model | 🔴 | ✅ **Closed** — 29 entities implemented and migrated; every attribute remains an assumption (`INC-05`), which is recorded, not fixed |
+| `R-05` | Branch scoping undefined | 🟠 | ✅ **Closed** — `B-03` resolved: non-isolating attribute, nullable `homeBranchId` on people. **`ASM-05` is withdrawn**, not assumed |
+| `R-06` | 15 NFRs untestable | 🟠 | 🟡 Open — ADR-012 thresholds accepted; reported as `PASS (ENGINEERING THRESHOLD)`, never bare `PASS`. Nothing verified yet |
+| `R-08` | Membership state set undefined | 🟠 | ✅ **Closed** — `B-05` resolved: **three** states. `ASM-13`'s four-state reading is withdrawn |
+| `R-09` | Payment gateway unnamed | 🟠 | 🟡 Open — not integrated; "online" is a recorded method only |
+| `R-10` | No negative paths | 🟠 | 🟡 Open — `ENH-09`, clearly labelled |
+| `R-19` | **Scope inflation via `ENH-01`** | 🟠 | 🟡 Open — Member portal must never be counted as academic coverage |
+| `R-20` | **Prisma + SQLite migration drift** | 🟡 | 🟢 Mitigated — migrations committed; the test suite rebuilds from them on every run (`tests/global-setup.ts`), and `T-U-032` guards CHECK drift |
+| `R-07` | Experiment numbering (`CON-01`) | 🟠 | 🟡 Open — `B-06` unresolved; label by artefact, never bare number |
+| `R-21` | **Test contamination via the shared test database** | 🟠 | 🟢 **Closed** — found in re-verification (135/136 cold-cache), fixed by the per-file isolation contract + suite teardown guard; 139/139 |
 
 ---
 

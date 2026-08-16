@@ -203,7 +203,8 @@ All 25 pairings below are therefore **exact**, not reconstructed from reading or
 | **Bound FR** | `FR-ADM-02` Manage gym branches · `US-12` / `AC-12` · D03 |
 | **Quantified** | ❌ — **no branch count, no member count, no concurrency figure** (`INC-07`) |
 | **Verification** | Load test — **impossible to specify without a target volume** |
-| **Blocker** | ⚠️ `AMB-05` — the branch data model is undefined (are members/staff/equipment/plans branch-scoped or global?). This NFR cannot be designed for, let alone tested |
+| **Blocker (source)** | ⚠️ `AMB-05` — **the source never states** whether members/staff/equipment/plans are branch-scoped. The requirement wording above is preserved verbatim and is not rewritten |
+| **Resolved by (`B-03`)** | Branch is a **non-isolating descriptive attribute**, not a tenant boundary. People carry a **nullable** `homeBranchId`; equipment and attendance carry a NOT NULL `branchId`; plans are global; **no query path filters by branch**. `NFR-12` is therefore an **indexing** requirement, not a partitioning one. This is an ENGINEERING DECISION derived from `US-12`, not a source statement → `docs/decisions/B-03_DECISION.md` |
 | **Note** | The **only** Scalability NFR, and the least actionable in the set |
 | **Status** | ⬜ |
 
@@ -584,7 +585,7 @@ Derived from the requirements above; each is a consequence, not a new requiremen
 | 3 | **Asynchronous notification dispatch** — email/SMS must sit outside request budgets | NFR-01 vs AC-01; NFR-19 |
 | 4 | **Append-only audit log** for payments, refunds and approvals | NFR-24, NFR-21, AC-23 |
 | 5 | **Explicit membership state machine** — feeds the required State Chart diagram | NFR-17, WF-02 |
-| 6 | **Branch as a first-class scoping boundary** | NFR-12, AMB-05 |
+| 6 | ~~**Branch as a first-class scoping boundary**~~ → **Branch as a non-isolating descriptive attribute** — `NFR-12` is met by **indexing, not partitioning**. `Member.homeBranchId` / `Staff.homeBranchId` nullable; `Equipment` and attendance NOT NULL; plans global; **no row-level isolation and no branch filter on any query path** (`B-03`) | NFR-12, AMB-05 |
 | 7 | **Report query optimisation / pre-aggregation** to hold the 5 s budgets | NFR-14, NFR-23 |
 | 8 | **Graceful degradation on the admin dashboard** — it aggregates all five modules | NFR-15 |
 | 9 | **Durable, transactional writes with tested restores** | NFR-07, NFR-13 |

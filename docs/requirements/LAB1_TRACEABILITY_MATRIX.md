@@ -272,6 +272,7 @@ Homepage: `Dept / 03` · "Administration" · badge `5 stories` ·
 | **Sub-behaviours** | `FR-SUB-11` add / update / **disable** |
 | **Depends on** | — (structural root, alongside `FR-ADM-01`) |
 | **Gaps** | ⚠️ **`AMB-05` — highest-impact data-model ambiguity.** Are members, staff, equipment, plans and payments branch-scoped or global? `INC-09` — what happens to members attached to a disabled branch? `NFR-12` gives no branch count, so "efficiently" is untestable (`INC-07`) |
+| **Resolution** | ✅ `AMB-05` → **`B-03`: branch is a non-isolating descriptive attribute.** People carry a nullable `homeBranchId`; equipment/attendance NOT NULL; plans global; no branch filter on any query path. ✅ `INC-09` answered structurally — `homeBranchId` is `SET NULL`, so disabling a branch does not affect its members. ⚠️ `INC-07` still open: no branch count is sourced, so the `NFR-12` threshold is 🟦 engineering (ADR-012) |
 | **Impl / Test** | ⬜ / ⬜ |
 
 ### US-13 · Maintain equipment maintenance schedules
@@ -408,6 +409,7 @@ Homepage: `Dept / 04` · "Membership Mgmt." · badge `5 stories` ·
 | **Sub-behaviours** | `FR-SUB-19` filter Active / Expired |
 | **Depends on** | `FR-REC-01`, `FR-MEM-01` |
 | **Gaps** | ⚠️ **State-set conflict.** AC-20 filters on **two** states (Active, Expired) but AC-17 introduces **"Cancelled"** and AC-19 implies **"Expiring"**. `[LAB1]` never defines the full state set — this is the direct input to the required State Chart diagram (`DIA-07`). See `WF-02`, `ASM-13` |
+| **Resolution** | ✅ **`B-05`: exactly three persisted states — `ACTIVE`, `EXPIRED`, `CANCELLED`.** `EXPIRING` is a **derived predicate** over `expiresAt`, never stored, so `AC-20`'s two-state filter is satisfied without inventing a status the criterion does not mention. `ASM-13`'s four-state reading is **withdrawn**; ADR-013 is superseded. Enforced by CHECK + transition trigger + partial unique index |
 | **Impl / Test** | ⬜ / ⬜ |
 
 ---
@@ -568,16 +570,21 @@ Detail: `docs/requirements/ENH-19_MEMBERSHIP_CREATION.md`.
 Five acceptance criteria state a precondition that **no user story satisfies**. These are the
 most actionable gaps in Lab 1.
 
-| # | Precondition (verbatim) | AC | Data required | Who writes it? |
-|---|---|---|---|---|
-| 1 | "check-in data is recorded at the entrance" | AC-14 | Attendance events | **Undefined** — blocks US-05 *and* US-14 |
-| 2 | "a member has a health condition logged" | AC-10 | Medical restrictions | **Undefined** — blocks US-10 |
-| 3 | "a machine needs regular service" | AC-13 | Equipment register | **Undefined** — blocks US-13 |
-| 4 | "an approved refund request" | AC-24 | Refund requests + approval | **Undefined** — blocks US-24 |
-| 5 | "a new staff member registers for access" | AC-11 | Staff self-registration | **Undefined** — blocks US-11 |
+| # | Precondition (verbatim) | AC | Data required | Owner in source | Resolution (`B-04`) |
+|---|---|---|---|---|---|
+| 1 | "check-in data is recorded at the entrance" | AC-14 | Attendance events | **Undefined** — blocked US-05 *and* US-14 | ✅ `ENH-02` — `AttendanceEvent` + `AttendanceDaily` |
+| 2 | "a member has a health condition logged" | AC-10 | Medical restrictions | **Undefined** — blocked US-10 | ✅ `ENH-03` — `MedicalRestriction` |
+| 3 | "a machine needs regular service" | AC-13 | Equipment register | **Undefined** — blocked US-13 | ✅ `ENH-04` — `Equipment` + `MaintenanceSchedule` |
+| 4 | "an approved refund request" | AC-24 | Refund requests + approval | **Undefined** — blocked US-24 | ✅ **`ENH-05` WITHDRAWN** — approval is an *external* precondition, captured as data on `Refund` (`approvedByStaffId`, `approvedAt`, `approvalReference`). **No `RefundRequest` entity exists** |
+| 5 | "a new staff member registers for access" | AC-11 | Staff self-registration | **Undefined** — blocked US-11 | ✅ `ENH-06` — `Staff.status = 'pending'` + activation columns |
 
-Plus two implied-but-unowned records: **prospect** (AC-03) and **plan template library**
-(AC-06, "chooses or creates").
+Plus two implied-but-unowned records: **prospect** (AC-03) → ✅ `ENH-07` `Prospect`; and
+**plan template library** (AC-06, "chooses or creates") → ✅ `ENH-08` `WorkoutPlan.isTemplate`.
+
+> ✅ **`B-04` is RESOLVED and the tables exist.** **None of these six stories is blocked any
+> longer.** The write paths are *database-supported*; the service and API layers that expose
+> them are Phase 4 work. The unblocking entities are **enhancements** and never count toward
+> academic coverage. → `docs/decisions/B-04_API_DECISIONS.md`
 
 ---
 

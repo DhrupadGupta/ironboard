@@ -42,8 +42,14 @@ are all invented, and `NFR-02` ("validate all member information") gives no guid
 
 ## 2. Entity catalogue
 
-**28 entities in eight groups** (the earlier "25" was an arithmetic error — the list below has
-always contained 28 after `RefundRequest` was withdrawn by `B-04`).
+**29 entities in eight groups.** Verified against the implementation, not asserted: 29 `model`
+blocks in `server/prisma/schema.prisma`, 29 `CREATE TABLE` statements in
+`prisma/migrations/20260816135841_init/migration.sql`, and 29 live tables — `T-U-001` asserts
+the set exactly. `RefundRequest` was withdrawn by `B-04` and is **not** among them.
+
+> ⚠️ **Corrected 2026-08-16.** This heading previously read "28 entities" while the catalogue
+> below already listed 29 (6+3+3+5+3+2+5+2). The error had propagated into `PHASE_STATUS.md`,
+> `SESSION_HANDOFF.md` and `LAB1_TRACEABILITY_MATRIX.md`; all are now 29.
 `⚠️` marks an entity that exists **only** to unblock a Lab 1 story whose write path no story
 provides. Every entity has a documented purpose; none was added because it "sounded useful".
 
@@ -374,20 +380,26 @@ Added deliberately to serve a specific NFR, not speculatively.
 
 **[REQ]** `NFR-02`, `NFR-17`, `NFR-24`.
 
-| Constraint | Enforces |
-|---|---|
-| `Membership.state` CHECK ∈ 4 values | `NFR-17`, ADR-013 |
-| `Payment.method` CHECK ∈ {cash, card, online} | `AC-21` |
-| `Payment.amountMinor > 0` | `NFR-24` |
-| `Refund.amountMinor <= Payment.amountMinor` | `NFR-24` — no over-refund |
-| `Receipt.paymentId` UNIQUE | `AC-04` one receipt per payment |
-| `Refund.refundRequestId` UNIQUE | `AC-24` one refund per approved request |
-| `RefundRequest.status = 'approved'` before `Refund` | `AC-24` "Given an **approved** refund request" |
-| FK `ON DELETE RESTRICT` throughout | `NFR-13`, `NFR-07` |
-| `LedgerEntry`, `AuditEvent` — no UPDATE/DELETE | ADR-011 |
+| Constraint | Enforces | Implemented as |
+|---|---|---|
+| `Membership.state` CHECK ∈ **3** values (`ACTIVE`, `EXPIRED`, `CANCELLED`) | `NFR-17`, `B-05` | CHECK |
+| `Payment.method` CHECK ∈ {cash, card, online} | `AC-21` | CHECK |
+| `Payment.amountMinor > 0` | `NFR-24` | CHECK |
+| Σ `Refund.amountMinor` ≤ `Payment.amountMinor` | `NFR-24` — no over-refund | `Refund_not_exceeding_payment` trigger |
+| `Receipt.paymentId` UNIQUE | `AC-04` one receipt per payment | UNIQUE index |
+| `Refund.approvedAt` / `approvedByStaffId` / `approvalReference` | `AC-24` "Given an **approved** refund request" — approval is an **external** precondition captured as data (`ENH-05` WITHDRAWN by `B-04`) | columns on `Refund` |
+| FK `ON DELETE` `Cascade` / `Restrict` / `SetNull`, declared per relation | `NFR-13`, `NFR-07` | FK actions |
+| `LedgerEntry`, `AuditEvent` — no UPDATE/DELETE; `MembershipEvent` — no UPDATE | ADR-011, `ENH-13`, `WF-02` | triggers |
 
-**Append-only is enforced at the repository layer**, which exposes only `create` and read
-methods for those two tables. SQLite triggers are a possible belt-and-braces addition.
+> ⚠️ **Corrected 2026-08-16.** This table previously described a 4-value state CHECK (superseded
+> by `B-05`), a `Refund.refundRequestId` UNIQUE and a `RefundRequest.status` precondition — none
+> of which exists: `RefundRequest` was withdrawn by `B-04` and never implemented.
+
+**Append-only is enforced by the database, not by application code** — `LedgerEntry` and
+`AuditEvent` carry `BEFORE UPDATE` and `BEFORE DELETE` triggers, `MembershipEvent` a
+`BEFORE UPDATE` trigger. This was previously described as a repository-layer concern with
+triggers "a possible belt-and-braces addition"; the triggers are implemented and there is no
+repository layer yet, so the database is the only thing enforcing it.
 
 ---
 

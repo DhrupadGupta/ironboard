@@ -1,7 +1,14 @@
 # Ironboard — Phase Status
 
 **Updated:** 2026-08-16 · **Commit:** see git log ·
-**Current phase:** **Phase 3 (database) COMPLETE — self-review PASSED** · Phase 4 NOT started
+**Current phase:** **Phase 3 (database) COMPLETE — self-review PASSED, test suite green** ·
+Phase 4 NOT started
+
+**Verified implementation state** (measured, not asserted — re-verified 2026-08-16):
+**29 entities** · 36 CHECK constraints · 2 partial unique indexes · 7 triggers ·
+**139/139 tests passing** · typecheck clean · **6 project skills**.
+Phase 3 is marked complete **because the corrected suite passes**, not merely because the
+schema exists.
 
 **Phase 3 self-review:** 12 checks, all answered against a live database rather than against
 documentation. 3 defects were found and fixed (ER-diagram drift, no disabled branch in the seed,
@@ -66,7 +73,7 @@ produced nothing yet, by design.
 | Lab 1 traceability matrix | ✅ | `docs/requirements/LAB1_TRACEABILITY_MATRIX.md` |
 | Lab 2 NFR traceability | ✅ | `docs/requirements/LAB2_NFR_TRACEABILITY.md` |
 | Design system | ✅ | `docs/ui/DESIGN_SYSTEM.md` |
-| Five project skills | ✅ | `.claude/skills/*/SKILL.md` |
+| **Six** project skills | ✅ | `.claude/skills/*/SKILL.md` — `software-engineering-diagrams`, `requirements-traceability`, `ironboard-ui-visual-qa`, `testing-and-quality`, `academic-submission-audit`, `software-engineering-documentation` |
 | Project instructions | ✅ | `CLAUDE.md` |
 
 ---
@@ -117,10 +124,13 @@ produced nothing yet, by design.
 
 **Both diagrams are enhancements, not academic coverage.** Mandatory diagram count remains **0 / 11** (plus the written artefact `DIA-05`, not started).
 
-⚠️ **Architecture was designed on unconfirmed assumptions.** `B-03`, `B-04` and `B-05` were not
-answered before this phase. ADR-013 (states), ADR-014 (branch scoping) and `ENH-02`…`ENH-06`
-(write paths) are baked into the database and API designs. `B-03` in particular touches nearly
-every table.
+⚠️ **Architecture was designed on unconfirmed assumptions — since reconciled.** `B-03`, `B-04`
+and `B-05` were not answered when this phase ran. They were answered afterwards, and **two of
+the three assumptions turned out to be wrong**: ADR-013's four states became **three** (`B-05`)
+and ADR-014's NOT NULL `branchId` on people became a **nullable, non-isolating**
+`homeBranchId` (`B-03`). `ENH-05` was withdrawn (`B-04`). Both ADRs are now marked FINAL and
+carry the implemented decision; the database was built to the resolved versions, not the
+assumed ones. **No residual risk from this item.**
 
 ---
 
@@ -168,7 +178,7 @@ artefact `DIA-05` is unblocked.
 
 | Phase | Deliverables | Notes |
 |---|---|---|
-| 3 Foundation — DB ✅ | Workspace scaffold, Prisma schema (28 entities), migration, 36 CHECKs, 7 triggers, deterministic seed, reset, 139 tests | ✅ **COMPLETE** — evidence `docs/testing/evidence/phase3-db-20260816T140858Z.log`, `phase3-test-isolation-20260816T152251Z.log` |
+| 3 Foundation — DB ✅ | Workspace scaffold, Prisma schema (**29 entities**), migration, 36 CHECKs, 7 triggers, deterministic seed, reset, 139 tests | ✅ **COMPLETE** — evidence `docs/testing/evidence/phase3-db-20260816T140858Z.log`, `phase3-test-isolation-20260816T152251Z.log` |
 | 3b Foundation — rest | Auth, RBAC, API skeleton, design-system primitives | 🔴 Not started |
 | 4 Modules | D01 → D04 → D02 → D05 → D03 (dependency order, not numeric) | ✅ six stories unblocked (`B-04`) |
 | 5 Frontend | Module screens, mobile nav (`ENH-11`) | — |
@@ -191,7 +201,7 @@ artefact `DIA-05` is unblocked.
 | NFRs with a verification | 0 | 25 |
 | Departments fully delivered | 0 | 5 |
 | Mandatory diagrams delivered | 0 | 11 |
-| **Database entities implemented** | **28** | **28** |
+| **Database entities implemented** | **29** | **29** |
 | **Database tests passing** | **139** | **139** |
 | Use case documentation (`DIA-05`, written) | 0 | 1 |
 
@@ -209,8 +219,8 @@ artefact `DIA-05` is unblocked.
 
 | ID | Question | Status | Outcome |
 |---|---|---|---|
-| `B-01` | Do members log in? | ✅ Resolved | Yes — `ENH-01`, excluded from academic coverage |
-| `B-02` | Authorisation model | ✅ Resolved | Six roles, deny-by-default |
+| `B-01` | Do members log in? | ✅ **RESOLVED** (Phase 1) | **Yes.** Six roles including Member; tracked as `ENH-01` and excluded from academic coverage. Implemented in data: `Role` rows include `member`. **Not** an open blocker |
+| `B-02` | Authorisation model | ✅ **RESOLVED** (Phase 1, ADR-007) | **Six roles, deny-by-default RBAC**; two checks are resource-level, not role-level (`NFR-10` via `TrainerAssignment`, `NFR-11` admin-only). Implemented in data: 6 roles, 36 permissions, 60 role-permission rows. **No guard code exists yet** — that is Phase 3b, not a reopened decision |
 | `B-03` | Branch a scoping boundary? | ✅ **RESOLVED** | Non-isolating attribute; classified an **ASSUMPTION** |
 | `B-04` | Five missing write paths | ✅ **RESOLVED** | 6 blocked endpoints → **0**; all were always MANDATORY |
 | `B-05` | Membership state set | ✅ **RESOLVED** | **3 states**, not 4 |
@@ -257,19 +267,37 @@ enumerates the three golden rules.
 
 ---
 
-## Provisional decisions to confirm
+## Formerly-provisional ADRs — all now settled
+
+**Nothing in this table awaits confirmation.** All three ADRs carry a final status, and both
+superseded ADRs have been rewritten in `ARCHITECTURAL_DECISIONS.md` to state the decision as
+implemented, with their original text retained under "Superseded text (retained for the
+record)".
 
 | ADR | Decision | Status |
 |---|---|---|
-| ADR-012 | Verification thresholds for 15 unquantified NFRs | ✅ **ACCEPTED** — `ADR-012-NFR-THRESHOLDS.md`; scaled to student project, 🟩/🟦 labelled |
-| ADR-013 | ~~Four membership states~~ | ❌ **SUPERSEDED** by `B-05` — three states |
-| ADR-014 | ~~Branch as a NOT NULL scoping column~~ | ❌ **SUPERSEDED** by `B-03` — nullable `homeBranchId` on people |
+| ADR-012 | Verification thresholds for 15 unquantified NFRs | ✅ **ACCEPTED** — `ADR-012-NFR-THRESHOLDS.md`; scaled to a student project, 🟩/🟦 labelled |
+| ADR-013 | ~~Four membership states~~ | ❌ **SUPERSEDED** by `B-05` — **three** states; now marked FINAL |
+| ADR-014 | ~~Branch as a NOT NULL scoping column~~ | ❌ **SUPERSEDED** by `B-03` — nullable `homeBranchId` on people; now marked FINAL |
 
 ---
 
 ## Next actions
 
-1. **Confirm `B-03`, `B-04`, `B-05`** — these gate Phase 2 and, through it, everything else.
-2. Confirm or amend ADR-012's assumed thresholds.
-3. On confirmation: produce the Phase 2 requirements documents and diagrams.
-4. Only then begin Phase 3 — Course Policy Lab 9 requires coding to follow the designs.
+> The previous version of this section instructed the next session to "confirm `B-03`, `B-04`,
+> `B-05`" and to "only then begin Phase 3". **All three are resolved and Phase 3 has shipped.**
+> That instruction is withdrawn.
+
+1. **Phase 2b — produce the 11 mandatory diagrams + `DIA-05`.** Nothing blocks 10 of the 11;
+   `DIA-12` proceeds under the stated `ASM-09`. **Course Policy Lab 9 requires coding to follow
+   the designs**, which makes this the academically safer thing to do before Phase 4.
+2. **Phase 2b — produce the outstanding requirements documents**: problem statement,
+   feasibility, user-vs-system requirements, development plan, process model.
+3. **Phase 3b — auth, RBAC, API skeleton, design-system primitives.** Unblocked: `B-01` and
+   `B-02` are decided; what is missing is *implementation*, including a password-hashing
+   choice (Argon2id per ADR-006/§11) that has not yet been made in code.
+4. **Phase 4 — department modules**, in dependency order D01 → D04 → D02 → D05 → D03.
+5. Escalate **`B-06`** (experiment numbering) — only faculty can answer it; it affects
+   submission labelling, not code.
+
+**Nothing in this list is gated on a `B-nn` decision except `B-06`, which gates labelling only.**
