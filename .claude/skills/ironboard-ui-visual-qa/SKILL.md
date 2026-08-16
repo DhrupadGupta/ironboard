@@ -149,6 +149,22 @@ rotates to a 3-up grid ≤900px.
 **Logo mark (`P-12`)** — 14px volt square with two box-shadows faking a receding plate stack:
 `box-shadow:4px 0 0 var(--paper), 8px 0 0 rgba(244,243,236,0.35)`.
 
+**Navigation** — sticky, blurred, hairline-bottomed; never a sidebar:
+```css
+header{position:sticky; top:0; z-index:100;
+       background:rgba(12,12,9,0.88); backdrop-filter:blur(10px);
+       border-bottom:1px solid var(--line);}
+nav{display:flex; align-items:center; justify-content:space-between;
+    padding:20px 32px; max-width:1180px; margin:0 auto;}   /* → 18px 20px ≤640px */
+.navlinks{display:flex; gap:36px; align-items:center;}
+.navlinks a{font:12px 'JetBrains Mono'; letter-spacing:0.1em; text-transform:uppercase;
+            color:var(--paper-dim); transition:color .2s ease;}
+.navlinks a:hover{color:var(--paper);}
+```
+Link cluster sits right, logo left, ending in one ghost + one solid button. Footer link
+columns use `.foot-col h4` (mono 11px, `0.12em`, `--paper-dim`) over `14px` links at
+`opacity:.82`, hovering to volt at full opacity.
+
 **`border-radius` is used exactly once in the entire source:** `50%` on the decorative plates.
 
 ## 6. Motion

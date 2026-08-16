@@ -55,6 +55,11 @@ are taught in the syllabus but assigned by no lab — build only if asked, and m
 `ENHANCEMENT`. `DIA-14` is marked *Proposed* in the course policy. `DIA-16` is an engineering
 enhancement that makes `DIA-09` tractable.
 
+> **ID range note.** `docs/project/REFERENCE_ANALYSIS.md` §10 registers `DIA-01`…`DIA-15` —
+> those are the diagrams the source documents call for. `DIA-16` (ER / data model) is
+> introduced **by this skill** as an enhancement and is deliberately outside that registry.
+> Never count it toward academic diagram coverage.
+
 ### Two recorded conflicts to honour, not resolve
 
 - **`CON-02` DFD depth** — Policy Lab 3 requires Level 0, 1 **and 2**; the DFD handout Part B

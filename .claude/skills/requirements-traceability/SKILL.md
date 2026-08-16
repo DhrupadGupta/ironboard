@@ -17,10 +17,27 @@ and a verification.**
    25 acceptance criteria, 25 NFRs, all from `reference/lab1/` and `reference/lab2/` Part B.
    New capability that no lab document states is an **enhancement** (`ENH-nn`), tracked
    separately and never counted toward academic coverage.
-2. **Never silently reconcile a conflict.** Conflicts carry IDs (`CON-01`…`CON-11`); cite the ID.
-3. **An assumption is not a requirement.** If implementation needs a fact the labs don't
+3. **Never silently reconcile a conflict.** Conflicts carry IDs (`CON-01`…`CON-11`); cite the ID.
+4. **An assumption is not a requirement.** If implementation needs a fact the labs don't
    provide, record it as `ASM-nn` in `docs/project/REQUIREMENT_GAP_ANALYSIS.md` and cite it in
    the traceability row.
+
+## 0. Requirements-phase documents this skill also owns
+
+Four Course Policy deliverables belong to the requirements phase and have no other owner.
+Produce them here; `academic-submission-audit` only grades them.
+
+| Deliverable | Required by | Output |
+|---|---|---|
+| Final problem statement | Policy Lab 1, item 6 | `docs/project/PROBLEM_STATEMENT.md` |
+| Feasibility study | Policy Lab 1, item 4 | `docs/project/FEASIBILITY.md` |
+| User vs system requirements split | Policy Lab 1, item 7 | `docs/requirements/USER_VS_SYSTEM_REQUIREMENTS.md` |
+| Development plan | Policy Lab 1, item 9 | `docs/project/DEVELOPMENT_PLAN.md` |
+| Process model selection + justification | Policy Lab 2 | `docs/project/PROCESS_MODEL.md` |
+
+Policy Lab 1 also requires a literature survey with five shortlisted case studies narrowed to
+one (`DOC-09`, `AMB-10`). No source document records that selection — the gym system is only
+*assumed* to be the choice (`ASM-08`). Record the assumption; do not fabricate a survey.
 
 ## 1. The ID system
 

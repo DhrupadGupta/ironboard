@@ -230,7 +230,38 @@ Store artefacts under `docs/testing/evidence/`.
 **Status values:** `PASS` · `FAIL` · `BLOCKED` · `NOT RUN` · `PASS (ASSUMED THRESHOLD ASM-nn)`.
 Never invent others. Never report academic and enhancement coverage as one number.
 
-## 10. Bug reporting (Course Policy Lab 8, Task 8 — *Proposed*)
+## 10. Definition of Done and the constraints list
+
+`reference/experiments/EXP-2-SE.docx` Step 2 requires NFR story tests to be added to a
+**published constraints list** and to the **Definition of Done**. Lab 2 produced neither
+(`INC-02`), and no other skill owns them — produce them here, since both are built from story
+tests.
+
+- `docs/testing/CONSTRAINTS.md` — system-wide rules every implemented story must satisfy,
+  each derived from a quantified NFR and each stated as an executable story test.
+- `docs/testing/DEFINITION_OF_DONE.md` — the checklist a story must clear to be called done.
+
+⚠️ Build these from **Ironboard's own** NFRs. The handout's populated Constraints and DoD
+tables (search response times, 10-second inactivity logout, `payment_preferences` log,
+credit-card masking, peer review within 4 hours) are **generic teaching examples about a
+different system** — never copy them in as Ironboard requirements.
+
+## 11. Status vocabulary and how it maps to the audit
+
+This skill grades **test results**; `academic-submission-audit` grades **deliverables**. The
+two scales are different on purpose. Map between them as follows:
+
+| Test result here | Audit grade there |
+|---|---|
+| `PASS` | contributes to `PASS` |
+| `PASS (ASSUMED THRESHOLD ASM-nn)` | contributes to `PARTIAL` — the target was not sourced |
+| `FAIL` | `FAIL` |
+| `BLOCKED (B-nn)` | `BLOCKED` |
+| `NOT RUN` | `MISSING` — never `PASS` |
+
+A deliverable is only `PASS` when **every** test under it is `PASS` with evidence.
+
+## 12. Bug reporting (Course Policy Lab 8, Task 8 — *Proposed*)
 
 "Create **3–5 sample bug reports** (severity, steps to reproduce, expected vs actual); assign
 bugs and simulate the fixing lifecycle (**Open → In Progress → Resolved → Closed**)."
@@ -240,7 +271,7 @@ Record real defects found by this suite in `docs/testing/BUG_REPORTS.md` with se
 expected vs actual, assignee and lifecycle state. If no external tracker is available, state
 that plainly rather than claiming a Bugzilla/Mantis instance was used.
 
-## 11. Related skills
+## 13. Related skills
 
 - `requirements-traceability` — owns the Test column; a row goes 🟢 only when its test passes
   **with evidence**.

@@ -48,14 +48,14 @@ silently pick one.
 | Lab | Week | Deliverable | Owning skill |
 |---|---|---|---|
 | 1 | 1–2 | Literature survey; ≥5 case studies → 1; scope; **9 sub-items**: end user · FRs · NFRs · feasibility · finalise problem · problem statement · user+system requirements · **ambiguities/inconsistencies/incompleteness** · development plan | `requirements-traceability` |
-| 2 | 3–4 | Select Generic / Evolutionary / Agile process model | — |
+| 2 | 3–4 | Select Generic / Evolutionary / Agile process model | `requirements-traceability` |
 | 3 | 5 | DFD level-0, level-1 **and level-2** | `software-engineering-diagrams` |
 | 4 | 6 | Use case diagram + **use case documentation** + activity diagram | `software-engineering-diagrams` |
 | 5 | 7 | State chart diagram from control specifications (**Star UML named**) | `software-engineering-diagrams` |
 | 6 | 8 | Sequence + class + state transition diagram | `software-engineering-diagrams` |
 | 7 | 9–10 | UI design diagram using the **three golden rules** | `ironboard-ui-visual-qa` |
 | 8 | 11–12 | *Proposed* — Task 8 bug reporting (Bugzilla/Mantis, 3–5 reports, Open→In Progress→Resolved→Closed); Task 9 sprint burndown (Jira, story points, deviation analysis) | `testing-and-quality` |
-| 9 | 13 | **Coding** per the designs from "EXP.4,5" | — |
+| 9 | 13 | **Coding** per the designs from "EXP.4,5" | *(no skill — implementation work)* |
 | 10 | 14 | Test cases for **any two functionalities** | `testing-and-quality` |
 
 ### B. Supplied handout outputs

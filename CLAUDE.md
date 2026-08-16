@@ -44,8 +44,8 @@ and a working application — both obligations are real, and they are tracked se
 
 `D01`–`D05` departments · `ACT-01`–`ACT-10` actors · `US-01`–`US-25` stories ·
 `AC-01`–`AC-25` acceptance criteria · `FR-{REC,TRN,ADM,MEM,ACC}-01..05` functional requirements ·
-`NFR-01`–`NFR-25` non-functional · `WF-01`–`WF-07` workflows · `DIA-01`–`DIA-16` diagrams ·
-`ENH-nn` enhancements.
+`NFR-01`–`NFR-25` non-functional · `WF-01`–`WF-07` workflows · `DIA-01`–`DIA-15` diagrams
+(plus `DIA-16` ER model, an enhancement added by the diagrams skill) · `ENH-nn` enhancements.
 
 `US-nn ↔ AC-nn ↔ FR-…-nn ↔ NFR-nn` is a fixed 1:1 mapping for all 25. Never renumber.
 
@@ -69,6 +69,8 @@ on them is **blocked**, not merely unstarted.
 
 ## Environment
 
-Java, Node 22, Python 3.11 and Graphviz are available. PlantUML runs from a downloaded JAR
+Java, Node 22 and Python 3.11 are pre-installed. **Graphviz is not** — install it with
+`apt-get install -y graphviz` (PlantUML needs it for class, state and activity layouts).
+PlantUML runs from a downloaded JAR
 (see the diagrams skill). Chromium is pre-installed at `/opt/pw-browsers/chromium` with
 `PLAYWRIGHT_BROWSERS_PATH` set — **never run `playwright install`**.
