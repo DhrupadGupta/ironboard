@@ -55,7 +55,7 @@ Defined in `docs/project/REFERENCE_ANALYSIS.md`, detailed in
 | `FR-SUB-01`–`FR-SUB-25` | Sub-behaviour stated inside an AC | 25 | Lab 1 ACs |
 | `NFR-01`–`NFR-25` | Non-functional requirement | 25 | `reference/lab2/` NFR column |
 | `WF-01`–`WF-07` | Workflow / lifecycle | 7 | Lab 1 + homepage workflow strip |
-| `DIA-01`–`DIA-15` | Diagram | 15 | Course policy + handouts (12 mandatory) |
+| `DIA-01`–`DIA-15` | Diagram / doc artefact | 15 | Course policy + handouts — **11 mandatory diagrams + `DIA-05` written artefact** |
 | `DIA-16` | ER model — **enhancement**, outside the source registry | 1 | Diagrams skill |
 | `ENH-nn` | Engineering enhancement — **not academic** | — | This project |
 

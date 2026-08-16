@@ -13,7 +13,8 @@ Architectural Design (Software Architecture, Data Design, Architectural Styles, 
 Flow into a Software Architecture), but **no Course Policy lab assigns an architecture
 diagram**. It exists because Phase 2 asked for it explicitly.
 
-Do not count it toward the 12 mandatory diagrams (`DIA-01`…`DIA-12`).
+Do not count it toward the **11 mandatory diagrams** (`DIA-01`–`DIA-04`, `DIA-06`–`DIA-12`).
+`DIA-05` is a written artefact, not a diagram.
 
 ## Traceability
 

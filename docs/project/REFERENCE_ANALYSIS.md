@@ -1018,7 +1018,7 @@ the repository.
 | Lab 2 non-functional requirements | 25 (10 quantified / 15 not) |
 | Workflows (primary / lifecycle) | 1 / 7 |
 | Experiment deliverables (`[POL]` labs) | 10 (11 tasks — Lab 8 has two) |
-| Required diagrams | 15 (12 mandatory, 3 taught-only) |
+| Required diagrams | 15 registered — **11 mandatory diagrams + 1 mandatory written artefact (`DIA-05`)**, 3 taught-only |
 | Testing activities | 6 + 9 mandatory test-case fields |
 | Documentation deliverables | 19 |
 | UI/design requirements | 10 (+ full token set) |

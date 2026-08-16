@@ -1,6 +1,6 @@
 ---
 name: software-engineering-diagrams
-description: Author, render and verify the UML/DFD/ER diagrams required by the Ironboard Software Engineering labs — DFD L0/L1/L2, use case + use case documentation, activity, state chart, sequence, collaboration, class, state transition, ER/data model and architecture. Use when asked to create, update, render, fix or review any project diagram, when a lab experiment requires a diagram deliverable, or when code changes make an existing diagram stale. Enforces PlantUML source-of-truth, rendered PNG output, visual inspection, and consistency with docs/requirements IDs.
+description: Author, render and verify the Ironboard Software Engineering diagram deliverables — the closed mandatory set of 11 rendered diagrams (DFD L0/L1/L2, use case, activity, state chart, sequence, class, state transition, collaboration, UI design) plus 1 written use case documentation artefact, and separately the engineering-enhancement diagrams. Use when asked to create, update, render, fix or review any project diagram, when a lab requires a diagram deliverable, or when code changes make a diagram stale. Enforces editable PlantUML source, committed rendered output, recorded visual inspection, requirement/terminology/implementation consistency, and strict separation of mandatory deliverables from enhancements.
 ---
 
 # Ironboard — Software Engineering Diagrams
@@ -25,40 +25,83 @@ described in `reference/lab1/` and `reference/lab2/` — never a generic example
    `use-case`, `dfd-l1`, `class` etc. as the canonical name and record both numbering claims in
    `NOTES.md`.
 
-## 1. Required diagrams
+## 1. The mandatory set — 11 diagrams + 1 written artefact
 
-Sourced from `reference/course-policy/Software-engg-Course Policy_version1-26=27.pdf` (lab
-table, pp.11–13), the `reference/experiments/*.docx` handouts, and
-`reference/syllabus/…Syllabus Compiled.pdf`.
+> ⚠️ **Never say "12 mandatory diagrams."** The mandatory set is
+> **11 rendered diagrams and 1 written documentation artefact** — 12 deliverables in total.
+> `DIA-05` (use case documentation) is prose, has no `.puml` and no `.png`, and is **not** a
+> diagram. Reporting it as one inflates diagram coverage.
 
-| ID | Artefact | Output path (no extension) | Required by | Tool |
+### How a diagram becomes mandatory — the only test
+
+A diagram is mandatory **if and only if** a source document assigns it as a deliverable:
+
+1. the **Course Policy lab table** (`reference/course-policy/…`, pp.11–13), or
+2. an **experiment handout's stated `Output:` line** (`reference/experiments/*.docx`).
+
+**The syllabus is not a source of deliverables.** It lists taught content and defers lab work
+to "8 to 10 programming exercises". A diagram appearing only in the syllabus is **taught, not
+assigned**.
+
+Nothing else creates a mandatory diagram — not this skill, not architectural need, not
+reviewer preference, not "it would help". **The list below is closed.** If a new diagram seems
+necessary, it is an `ENHANCEMENT` (§1.3); adding it to §1.1 requires new evidence from
+`reference/`.
+
+### 1.1 Mandatory rendered diagrams — 11
+
+| ID | Diagram | Output path (no extension) | Source assignment (verbatim) | Tool |
 |---|---|---|---|---|
-| `DIA-01` | DFD Level 0 (context) | `docs/diagrams/dfd/dfd-l0` | Policy Lab 3; DFD handout Part B | PlantUML |
-| `DIA-02` | DFD Level 1 | `docs/diagrams/dfd/dfd-l1` | Policy Lab 3; DFD handout Part B | PlantUML |
-| `DIA-03` | DFD Level 2 | `docs/diagrams/dfd/dfd-l2` | Policy Lab 3 **only** (`CON-02`) | PlantUML |
-| `DIA-04` | Use case diagram | `docs/diagrams/use-case/use-case` | Policy Lab 4; `EXP-3-USE CASE.docx` | PlantUML |
-| `DIA-05` | Use case documentation | `docs/diagrams/use-case/USE_CASE_DOCUMENTATION.md` | Policy Lab 4; `EXP-3` | Markdown |
-| `DIA-06` | Activity diagram | `docs/diagrams/activity/activity-<workflow>` | Policy Lab 4; `EXP-4-ACTIVITY.docx` | PlantUML |
-| `DIA-07` | State chart diagram | `docs/diagrams/state/state-chart-membership` | Policy Lab 5 (**Star UML named**) | PlantUML |
-| `DIA-08` | Sequence diagram | `docs/diagrams/sequence/sequence-<flow>` | Policy Lab 6; `LAB-6-Sequence diagram.docx` | PlantUML |
-| `DIA-09` | Class diagram | `docs/diagrams/class/class-diagram` | Policy Lab 6; `EXP-5-CLASS.docx` | PlantUML |
-| `DIA-10` | State transition diagram | `docs/diagrams/state/state-transition-<entity>` | Policy Lab 6 (`AMB-08`) | PlantUML |
-| `DIA-11` | Collaboration / communication | `docs/diagrams/collaboration/collab-<flow>` | `EXP-7-COLLAB.docx`; Syllabus Unit 3 (`CON-03`) | PlantUML |
-| `DIA-12` | UI design diagram | `docs/diagrams/ui/ui-design` | Policy Lab 7 — three golden rules | See `ironboard-ui-visual-qa` |
-| `DIA-13` | Control Flow Model | `docs/diagrams/cfd/control-flow` | Syllabus Unit 4 — **taught only** | PlantUML |
-| `DIA-14` | Burndown chart | `docs/diagrams/agile/burndown` | Policy Lab 8 Task 9 (*proposed*) | Mermaid/Python |
-| `DIA-15` | Architecture diagram | `docs/diagrams/architecture/architecture` | Syllabus Unit 5 — **taught only** | PlantUML/Graphviz |
-| `DIA-16` | ER / data model | `docs/diagrams/er/er-model` | **Enhancement** — supports `EXP-5` | PlantUML |
+| `DIA-01` | DFD Level 0 (context) | `docs/diagrams/dfd/dfd-l0` | Policy Lab 3 "Design level-0 Data flow diagram"; DFD handout Part B "DEVELOP DFD LEVEL 0 AND LEVEL 1" | PlantUML |
+| `DIA-02` | DFD Level 1 | `docs/diagrams/dfd/dfd-l1` | Policy Lab 3 "Design level-1 … Data flow diagram"; DFD handout Part B | PlantUML |
+| `DIA-03` | DFD Level 2 | `docs/diagrams/dfd/dfd-l2` | Policy Lab 3 "**and Level-2** Data flow diagram" — **policy only** (`CON-02`) | PlantUML |
+| `DIA-04` | Use case diagram | `docs/diagrams/use-case/use-case` | Policy Lab 4 "Development of Use case diagram"; `EXP-3` "Output: A Use case diagram for the System." | PlantUML |
+| `DIA-06` | Activity diagram | `docs/diagrams/activity/activity-<workflow>` | Policy Lab 4 "Activity Diagram"; `EXP-4` "Output: A Activity diagram for the System." | PlantUML |
+| `DIA-07` | State chart diagram | `docs/diagrams/state/state-chart-membership` | Policy Lab 5 "Design State chart diagram using case study's Control specifications" (**Star UML named**) | PlantUML |
+| `DIA-08` | Sequence diagram | `docs/diagrams/sequence/sequence-<flow>` | Policy Lab 6 "Design sequence diagram"; `LAB-6` "Output: A Sequence diagram of the system." | PlantUML |
+| `DIA-09` | Class diagram | `docs/diagrams/class/class-diagram` | Policy Lab 6 "class diagram"; `EXP-5` "Output: Class diagram for the system." | PlantUML |
+| `DIA-10` | State transition diagram | `docs/diagrams/state/state-transition-<entity>` | Policy Lab 6 "state transition diagram for selected problem" (`AMB-08`) | PlantUML |
+| `DIA-11` | Collaboration / communication | `docs/diagrams/collaboration/collab-<flow>` | `EXP-7` "Output: A Collaboration diagram for the system." — **no policy lab slot** (`CON-03`) | PlantUML |
+| `DIA-12` | UI design diagram | `docs/diagrams/ui/ui-design` | Policy Lab 7 "Design the appropriate user interface diagram … using three golden rules" | See `ironboard-ui-visual-qa` |
 
-**Mandatory vs enhancement.** `DIA-01`…`DIA-12` are academic requirements. `DIA-13`, `DIA-15`
-are taught in the syllabus but assigned by no lab — build only if asked, and mark them
-`ENHANCEMENT`. `DIA-14` is marked *Proposed* in the course policy. `DIA-16` is an engineering
-enhancement that makes `DIA-09` tractable.
+**Mandatory diagram coverage is counted out of 11.**
 
-> **ID range note.** `docs/project/REFERENCE_ANALYSIS.md` §10 registers `DIA-01`…`DIA-15` —
-> those are the diagrams the source documents call for. `DIA-16` (ER / data model) is
-> introduced **by this skill** as an enhancement and is deliberately outside that registry.
-> Never count it toward academic diagram coverage.
+### 1.2 Mandatory written documentation artefact — 1
+
+| ID | Artefact | Output path | Source assignment (verbatim) | Form |
+|---|---|---|---|---|
+| `DIA-05` | **Use case documentation** | `docs/diagrams/use-case/USE_CASE_DOCUMENTATION.md` | Policy Lab 4 "**Documentation of use cases**"; `EXP-3` "written first in narrative form and then mapped to a template" | **Markdown prose — no `.puml`, no `.png`** |
+
+⚠️ `DIA-05` keeps a `DIA-` ID for continuity with the existing registry, but it is **written
+documentation**. §3.2 governs it; the three-artefact rule in §3.1 does **not** apply. Its prose
+standard is owned by `software-engineering-documentation` §4.13.
+
+### 1.3 Engineering enhancements — NOT mandatory, never counted
+
+| ID | Diagram | Why it is not mandatory | Status |
+|---|---|---|---|
+| `DIA-13` | Control Flow Model | Syllabus Unit 4 teaches it; **no lab assigns it** | Build only if asked |
+| `DIA-14` | Burndown chart | Policy Lab 8 Task 9, explicitly marked "**Proposed**" | Optional |
+| `DIA-15` | **Architecture diagram** | Syllabus Unit 5 teaches Architectural Design; **no lab assigns a diagram** | ✅ Built — counts **0** |
+| `DIA-16` | **ER / data model** | **No lab assigns it.** The policy lists "Knowledge of ER diagram" only in the **Prerequisite** column of Labs 4–5, never as an output | ✅ Built — counts **0** |
+
+> **`DIA-15` and `DIA-16` are complete but contribute nothing to academic coverage.** They were
+> requested during Phase 2. Any report that counts them among the mandatory set is wrong.
+> `docs/project/REFERENCE_ANALYSIS.md` §10 registers `DIA-01`…`DIA-15`; `DIA-16` sits
+> deliberately outside that registry.
+
+### 1.4 Counting rule
+
+| Question | Answer |
+|---|---|
+| Mandatory **diagrams** | **11** (`DIA-01`–`DIA-04`, `DIA-06`–`DIA-12`) |
+| Mandatory **written artefacts** | **1** (`DIA-05`) |
+| Mandatory **deliverables** in total | **12** |
+| Enhancement diagrams built so far | 2 (`DIA-15`, `DIA-16`) — counted separately, always |
+
+Report as: *"Mandatory diagrams: n / 11. Use case documentation: complete / not complete.
+Enhancements: n (not academic coverage)."*
+**Never** as *"n / 12 diagrams."*
 
 ### Two recorded conflicts to honour, not resolve
 
@@ -93,17 +136,24 @@ secondary/right-hand actors, never as use case owners):
 > the verb, its AC heading says "Generate", Lab 2 says "Review", the homepage says "Produce".
 > Use **"Review revenue reports"** (the Lab 2 FR label) on diagrams and footnote the conflict.
 
-## 3. Required file layout
+## 3. Required artefacts per deliverable
 
-Every diagram is three artefacts. A rendered PNG with no source, or source with no render,
-is incomplete.
+### 3.1 Rendered diagrams (`DIA-01`–`DIA-04`, `DIA-06`–`DIA-12`, and any enhancement)
+
+**Three artefacts. All three are required.** A rendered PNG with no source, or source with no
+render, or either without a recorded visual inspection, is **incomplete**.
 
 ```
 docs/diagrams/<category>/
-├── <name>.puml        # editable source — the source of truth
-├── <name>.png         # rendered output, committed
-└── NOTES.md           # per-category: traceability, conflicts, assumptions
+├── <name>.puml        # 1. EDITABLE SOURCE — the source of truth, diffable, reviewable
+├── <name>.png         # 2. RENDERED OUTPUT — committed, never generated on demand only
+└── NOTES.md           # 3. per-category: traceability, conflicts, assumptions, verification
 ```
+
+- **Editable source is mandatory.** A committed image with no `.puml` cannot be reviewed,
+  diffed or regenerated, and is treated as missing.
+- **Rendered output is mandatory.** It is what the submission shows.
+- **Visual inspection is mandatory** and must be recorded in `NOTES.md` — see §6.
 
 Every `.puml` opens with this header:
 
@@ -111,13 +161,36 @@ Every `.puml` opens with this header:
 ' ============================================================
 ' Ironboard — <Artefact name>
 ' Diagram ID   : DIA-nn
-' Status       : ACADEMIC REQUIREMENT | ENHANCEMENT
-' Required by  : <exact source document + page/section>
+' Kind         : RENDERED DIAGRAM
+' Status       : MANDATORY (source-assigned) | ENHANCEMENT (not academic coverage)
+' Required by  : <exact source document + page/section, or "no source — enhancement">
 ' Traces to    : US-nn, FR-xxx-nn, AC-nn, NFR-nn, WF-nn
 ' Assumptions  : ASM-nn (or: none)
 ' Last verified: <date> against docs/requirements/
 ' ============================================================
 ```
+
+### 3.2 Written documentation artefact (`DIA-05` only)
+
+**One artefact.** No `.puml`, no `.png`, no render, no visual inspection.
+
+```
+docs/diagrams/use-case/USE_CASE_DOCUMENTATION.md
+```
+
+Front-matter instead of a `.puml` header:
+
+```markdown
+**Kind:** WRITTEN DOCUMENTATION ARTEFACT (not a diagram)
+**ID:** DIA-05 · **Status:** MANDATORY
+**Required by:** Policy Lab 4 "Documentation of use cases"; EXP-3-USE CASE.docx
+**Traces to:** US-01..US-25, AC-01..AC-25
+**Last verified:** <date>
+```
+
+Verification for `DIA-05` is §6 items **4, 5 and 6 only** (requirement, terminology and
+implementation consistency). Items 1–3 and 7 do not apply. Prose standard:
+`software-engineering-documentation` §4.13.
 
 ## 4. Rendering
 
@@ -260,9 +333,12 @@ them consistent with `DIA-16`.
 Not required by any lab. Build it first if `DIA-09` is blocked: it makes attributes explicit
 and is the natural input to the database layer. Mark `Status: ENHANCEMENT`.
 
-## 6. Verification — run before claiming a diagram is done
+## 6. Verification — run before claiming a deliverable is done
 
 **Never mark a diagram complete without viewing the rendered PNG.**
+
+**Applicability:** steps 1–3 and 7–8 apply to **rendered diagrams** (§3.1) only.
+Steps 4, 5 and 6 apply to **every** deliverable, including the written artefact `DIA-05` (§3.2).
 
 1. **Render** — the PlantUML command must exit 0 and produce a PNG.
 2. **Read the PNG with the Read tool.** This is mandatory, not optional. Text-valid PlantUML
@@ -287,6 +363,48 @@ and is the natural input to the database layer. Mark `Status: ENHANCEMENT`.
    - Sequence participants == class diagram classes
    - Collaboration message numbering == sequence order
    - State chart states == the status values used in the class/ER model
+
+### 6.1 Verification must be recorded
+
+An inspection that is not written down did not happen. Every category `NOTES.md` carries:
+
+```markdown
+## Verification
+| Check | Result |
+|---|---|
+| Renders without exception | ✅ 0 exceptions |
+| PNG read and inspected | ✅ <width> × <height>, ratio <r> |
+| Layout defects found/fixed | <what was wrong, or "none"> |
+| Requirement consistency | ✅ every element traces to an ID |
+| Terminology consistency | ✅ matches §2 |
+| Implementation consistency | ✅ / ⬜ no code yet |
+| Notation correctness | ✅ |
+| Date verified | <ISO date> |
+```
+
+Record layout defects **and their fix**, honestly. If a limitation could not be fixed, say so
+and say why — an accepted flaw stated plainly is worth more than a silent one.
+
+### 6.2 Completion gate
+
+A **rendered diagram** is complete only when **all** hold:
+
+- [ ] `.puml` editable source committed
+- [ ] `.png` rendered output committed, produced from that source
+- [ ] PNG **read and visually inspected**, result recorded in `NOTES.md`
+- [ ] Every element traces to a requirement ID; header IDs all appear
+- [ ] Terminology matches §2 exactly
+- [ ] Implementation consistency checked (or marked "no code yet")
+- [ ] Notation correct; multiplicities present
+- [ ] Cross-diagram consistency checked (§6, step 8)
+- [ ] Header states `MANDATORY` or `ENHANCEMENT` — never blank
+
+A **written artefact** (`DIA-05`) is complete only when: front-matter present · every use case
+traces to `US-nn`/`AC-nn` · exceptions section states `NOT IN SOURCE (INC-01)` · terminology
+matches §2.
+
+**Missing any item ⇒ the deliverable is incomplete.** Report it as incomplete rather than
+counting it.
 
 ## 7. Maintenance
 

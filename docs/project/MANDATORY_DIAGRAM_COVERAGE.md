@@ -24,20 +24,25 @@ appears only in the syllabus is **taught, not assigned**.
 | Source | Deliverable diagrams | Count |
 |---|---|---|
 | Policy Lab 3 | DFD level-0, level-1, level-2 | 3 |
-| Policy Lab 4 | Use case diagram · Documentation of use cases · Activity diagram | 3 |
+| Policy Lab 4 | Use case diagram · Activity diagram | 2 diagrams |
+| Policy Lab 4 | **Documentation of use cases** | **1 written artefact** |
 | Policy Lab 5 | State chart diagram | 1 |
 | Policy Lab 6 | Sequence diagram · Class diagram · State transition diagram | 3 |
 | Policy Lab 7 | User interface diagram (three golden rules) | 1 |
 | `EXP-7-COLLAB.docx` — "Output: A Collaboration diagram for the system." | Collaboration diagram | 1 |
-| | **TOTAL MANDATORY** | **12** |
+| | **TOTAL MANDATORY DIAGRAMS** | **11** |
+| | **TOTAL MANDATORY WRITTEN ARTEFACTS** | **1** |
+| | **TOTAL MANDATORY DELIVERABLES** | **12** |
 
-> **Precision note:** of these twelve, **eleven are drawings and one (`DIA-05`, use case
-> documentation) is a written artefact.** The project has been calling the set "12 mandatory
-> diagrams"; strictly it is 11 diagrams + 1 documentation output. Both are required.
+> ⚠️ **Counting rule — binding.** The mandatory set is **11 rendered diagrams + 1 written
+> documentation artefact** = 12 deliverables. `DIA-05` (use case documentation) is prose: it has
+> no `.puml` and no `.png` and is **not a diagram**.
+> Report as *"Mandatory diagrams: n / 11"* plus the artefact separately.
+> **Never** report *"n / 12 diagrams"* — that inflates diagram coverage by counting a document.
 
 ---
 
-## 2. Mandatory diagrams — 12
+## 2. Mandatory deliverables — 11 diagrams + 1 written artefact
 
 ### `DIA-01` — DFD Level 0 (context)
 | Field | Value |
@@ -195,10 +200,13 @@ appears only in the syllabus is **taught, not assigned**.
 
 | Set | Complete | Total |
 |---|---|---|
-| **Mandatory diagrams** | **0** | **12** |
+| **Mandatory rendered diagrams** | **0** | **11** |
+| **Mandatory written artefact** (`DIA-05`) | **0** | **1** |
 | Enhancement diagrams | 2 | 4 |
 
-**Mandatory coverage: 0 / 12.**
+**Mandatory diagram coverage: 0 / 11.**  ·  **Use case documentation (`DIA-05`): not started.**
+
+> Reported as 11 diagrams + 1 written artefact, never as "0 / 12 diagrams".
 
 ### Blocker status after this decision review
 

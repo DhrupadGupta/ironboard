@@ -84,8 +84,8 @@
 
 > **Phase numbering note.** The master plan's Phase 2 is "Requirements & design". The
 > instruction that produced this work called it "Phase 2 — Architecture" and covered the
-> architecture subset only. The requirements-phase documents and the twelve mandatory
-> diagrams below remain outstanding.
+> architecture subset only. The requirements-phase documents, the **11 mandatory diagrams** and
+> the written artefact `DIA-05` below all remain outstanding.
 
 | Deliverable | Status | Artefact |
 |---|---|---|
@@ -96,7 +96,7 @@
 | Architecture diagram | ✅ | `docs/diagrams/architecture/architecture.png` (`DIA-15`, ENH) |
 | ER / data model diagram | ✅ | `docs/diagrams/er/er-model.png` (`DIA-16`, ENH) |
 
-**Both diagrams are enhancements, not academic coverage.** Mandatory diagram count remains 0/12.
+**Both diagrams are enhancements, not academic coverage.** Mandatory diagram count remains **0 / 11** (plus the written artefact `DIA-05`, not started).
 
 ⚠️ **Architecture was designed on unconfirmed assumptions.** `B-03`, `B-04` and `B-05` were not
 answered before this phase. ADR-013 (states), ADR-014 (branch scoping) and `ENH-02`…`ENH-06`
@@ -107,8 +107,9 @@ every table.
 
 ## Phase 2b — Requirements & design diagrams 🔴
 
-**Unblocked.** `B-03`, `B-04` and `B-05` are resolved; 11 of 12 mandatory diagrams have no remaining
-blocker, and `DIA-12` may proceed under the stated `ASM-09` assumption.
+**Unblocked.** `B-03`, `B-04` and `B-05` are resolved. Of the **11 mandatory diagrams**, 10 have no
+remaining blocker and `DIA-12` may proceed under the stated `ASM-09` assumption. The written
+artefact `DIA-05` is unblocked.
 
 ### Requirements-phase documents (owner: `requirements-traceability`)
 
@@ -129,7 +130,7 @@ blocker, and `DIA-12` may proceed under the stated `ASM-09` assumption.
 | `DIA-02` | DFD Level 1 | 🔴 | — |
 | `DIA-03` | DFD Level 2 | 🔴 | `CON-02` — produce anyway (superset) |
 | `DIA-04` | Use case diagram | 🔴 | — |
-| `DIA-05` | Use case documentation | 🔴 | — |
+| `DIA-05` | Use case documentation **(written artefact, not a diagram)** | 🔴 | — |
 | `DIA-06` | Activity diagram | 🔴 | — |
 | `DIA-07` | State chart (membership) | 🔴 | ✅ cleared — 3 states (`B-05`) |
 | `DIA-08` | Sequence diagram | 🔴 | — |
@@ -169,7 +170,8 @@ blocker, and `DIA-12` may proceed under the stated `ASM-09` assumption.
 | NFRs with an implementation | 0 | 25 |
 | NFRs with a verification | 0 | 25 |
 | Departments fully delivered | 0 | 5 |
-| Diagrams delivered | 0 | 12 mandatory |
+| Mandatory diagrams delivered | 0 | 11 |
+| Use case documentation (`DIA-05`, written) | 0 | 1 |
 
 **Enhancements — reported separately, never summed with the above.**
 
@@ -220,7 +222,8 @@ implement: **YES**.
 
 ## Mandatory diagram coverage
 
-**0 / 12.** See `docs/project/MANDATORY_DIAGRAM_COVERAGE.md` for the per-diagram breakdown.
+**Diagrams 0 / 11** · **written artefact `DIA-05` not started.** See
+`docs/project/MANDATORY_DIAGRAM_COVERAGE.md`. Never report this as "0 / 12 diagrams".
 
 `DIA-15` and `DIA-16` are complete but are **enhancements** and contribute **0** to this count.
 The course policy lists "Knowledge of ER diagram" only in the **Prerequisite** column, never as
