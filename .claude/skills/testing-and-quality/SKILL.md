@@ -150,7 +150,7 @@ concrete terms, this should be a bad smell."*
 
 Procedure: propose a threshold, record it as `ASM-nn` in
 `docs/project/REQUIREMENT_GAP_ANALYSIS.md`, then test against it and mark the result
-**`PASS (ASSUMED THRESHOLD ASM-nn)`** — never plain `PASS`. Do not present an invented number
+**`PASS (ENGINEERING THRESHOLD)`** — never plain `PASS`. Do not present an invented number
 as a sourced requirement.
 
 Two are untestable in principle and must be reported as such, not quietly passed:
@@ -227,7 +227,7 @@ Store artefacts under `docs/testing/evidence/`.
 ## Coverage — enhancement (reported separately, never summed)
 ```
 
-**Status values:** `PASS` · `FAIL` · `BLOCKED` · `NOT RUN` · `PASS (ASSUMED THRESHOLD ASM-nn)`.
+**Status values:** `PASS` · `FAIL` · `BLOCKED` · `NOT RUN` · `PASS (ENGINEERING THRESHOLD)`.
 Never invent others. Never report academic and enhancement coverage as one number.
 
 ## 10. Definition of Done and the constraints list
@@ -254,7 +254,7 @@ two scales are different on purpose. Map between them as follows:
 | Test result here | Audit grade there |
 |---|---|
 | `PASS` | contributes to `PASS` |
-| `PASS (ASSUMED THRESHOLD ASM-nn)` | contributes to `PARTIAL` — the target was not sourced |
+| `PASS (ENGINEERING THRESHOLD)` | contributes to `PARTIAL` — the target was not sourced |
 | `FAIL` | `FAIL` |
 | `BLOCKED (B-nn)` | `BLOCKED` |
 | `NOT RUN` | `MISSING` — never `PASS` |

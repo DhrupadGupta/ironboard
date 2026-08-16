@@ -39,6 +39,7 @@ and a working application — both obligations are real, and they are tracked se
 | `ironboard-ui-visual-qa` | Visual identity enforcement and screenshot-based QA |
 | `testing-and-quality` | All test levels, NFR verification, academic test cases |
 | `academic-submission-audit` | PASS/FAIL/PARTIAL/MISSING grading before a submission |
+| `software-engineering-documentation` | How every document under `docs/` is written, labelled and evidenced |
 
 ## The requirement ID system
 

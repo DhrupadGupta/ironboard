@@ -55,7 +55,8 @@ Defined in `docs/project/REFERENCE_ANALYSIS.md`, detailed in
 | `FR-SUB-01`–`FR-SUB-25` | Sub-behaviour stated inside an AC | 25 | Lab 1 ACs |
 | `NFR-01`–`NFR-25` | Non-functional requirement | 25 | `reference/lab2/` NFR column |
 | `WF-01`–`WF-07` | Workflow / lifecycle | 7 | Lab 1 + homepage workflow strip |
-| `DIA-01`–`DIA-16` | Diagram | 16 | Course policy + handouts |
+| `DIA-01`–`DIA-15` | Diagram | 15 | Course policy + handouts (12 mandatory) |
+| `DIA-16` | ER model — **enhancement**, outside the source registry | 1 | Diagrams skill |
 | `ENH-nn` | Engineering enhancement — **not academic** | — | This project |
 
 Fixed 1:1 mapping: `US-nn ↔ AC-nn ↔ FR-…-nn ↔ NFR-nn` for all 25. Never renumber.
@@ -94,34 +95,37 @@ Requirement (FR-xxx-nn)
 **Status:** 🟢 complete (all links + passing tests) · 🟡 partial · 🔴 not started ·
 ⛔ blocked (cite `B-nn`).
 
-## 3. Blocked requirements — check before starting work
+## 3. Decision status — check before starting work
 
-Six decisions gate implementation (`docs/project/REQUIREMENT_GAP_ANALYSIS.md` §3). **These are
-unresolved.** Do not resolve them by assumption inside a traceability row — escalate.
+**All six gating decisions are RESOLVED.** Full records in `docs/decisions/` and
+`docs/project/PRE_PHASE_3_DECISION_REGISTER.md`. Do not re-open them by assumption.
 
-| ID | Decision | Blocks |
+| ID | Decision | Status | Outcome |
+|---|---|---|---|
+| `B-01` | Do members log in? | ✅ | Yes — `ENH-01`, excluded from academic coverage |
+| `B-02` | Authorisation model | ✅ | Six roles, deny-by-default (ADR-007) |
+| `B-03` | Is branch a scoping boundary? | ✅ | Non-isolating attribute; classified an **ASSUMPTION** |
+| `B-04` | Five missing write paths | ✅ | **No endpoint was actually blocked**; `ENH-05` withdrawn |
+| `B-05` | Membership state set | ✅ | **Three** states — `ACTIVE`, `EXPIRED`, `CANCELLED` |
+| `B-06` | Experiment numbering | ⚠️ Open | Not resolvable by us; label per artefact, never by number |
+
+### Write paths — resolved, no longer blocking ⚠️
+
+Six acceptance criteria read data no user story creates. `B-04` established that a `Given`
+clause is a **precondition, not a system obligation**, so none of the mandatory endpoints was
+blocked — each needs only a minimal write path.
+
+| Precondition (verbatim from Lab 1) | AC | Resolution |
 |---|---|---|
-| `B-01` | Do members log in? | Scope of every UI link; `ACT-06` |
-| `B-02` | Authorisation model | `NFR-10`, `NFR-11`, `NFR-21` |
-| `B-03` | Is branch a scoping boundary? | Nearly every DB table; `NFR-12` |
-| `B-04` | Who creates the 5 missing record types? | `US-05`, `US-10`, `US-11`, `US-13`, `US-14`, `US-24` |
-| `B-05` | Membership state set | `NFR-17`, `DIA-07` |
-| `B-06` | Which experiment numbering governs? | Deliverable labelling |
+| "check-in data is recorded at the entrance" | `AC-14` | `ENH-02` — unblocks `US-05` **and** `US-14` |
+| "a member has a health condition logged" | `AC-10` | `ENH-03`, scope reduced to a field at registration |
+| "a machine needs regular service" | `AC-13` | `ENH-04` — **IMPLIED-MANDATORY** |
+| "an approved refund request" | `AC-24` | `ENH-05` **WITHDRAWN** — approval is external; capture `approvedBy` as data |
+| "a new staff member registers for access" | `AC-11` | `ENH-06` — enhancement, recommended |
+| *(none — no story creates a membership)* | — | **`ENH-19`** — sixth path, found in the `B-05` review |
 
-### The five missing write paths ⚠️
-
-Acceptance criteria read data that **no user story creates**. Any row depending on one must be
-marked ⛔ until `B-04` is decided.
-
-| Precondition (verbatim from Lab 1) | AC | Blocks |
-|---|---|---|
-| "check-in data is recorded at the entrance" | `AC-14` | `US-05` **and** `US-14` |
-| "a member has a health condition logged" | `AC-10` | `US-10` |
-| "a machine needs regular service" | `AC-13` | `US-13` |
-| "an approved refund request" | `AC-24` | `US-24` |
-| "a new staff member registers for access" | `AC-11` | `US-11` |
-
-Plus two unowned records: **Prospect** (`AC-03`) and **plan template library** (`AC-06`).
+Plus: **Prospect** (`AC-03`, `ENH-07`), **plan templates** (`AC-06`, `ENH-08`), and
+**`TrainerAssignment`** (`NFR-10`, `ENH-20` — written as a side effect of `AC-06`/`AC-08`).
 
 ## 4. Making acceptance criteria testable
 
@@ -166,9 +170,11 @@ Stated thresholds — use these verbatim, never round them:
 | 99.9 % | `NFR-03`, `NFR-15` | Scheduling; monitoring dashboard |
 | Binary | `NFR-10`, `NFR-11`, `NFR-21` | Access restrictions |
 
-For the 15 unquantified NFRs: adopt a threshold **only** as an explicit `ASM-nn`, record it in
-the gap analysis, and mark the traceability row `ASSUMED THRESHOLD`. Never present an invented
-number as a sourced requirement.
+For the 15 unquantified NFRs the thresholds are **decided and accepted** — see
+`docs/requirements/NFR_VERIFICATION_THRESHOLDS.md` and
+`docs/architecture/ADR-012-NFR-THRESHOLDS.md`. Use those figures; do not re-invent them.
+Mark the traceability row `ENGINEERING THRESHOLD` and report results as
+**`PASS (ENGINEERING THRESHOLD)`**. Never present an invented number as a sourced requirement.
 
 Known NFR conflicts to cite rather than fix: `N-1` (two different availability rules for
 scheduling), `N-2` (renewal 2 s budget is tighter than registration 3 s despite requiring a

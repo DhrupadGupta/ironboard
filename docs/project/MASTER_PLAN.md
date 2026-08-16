@@ -230,9 +230,11 @@ Each NFR needs an **implementation** and a **verification**. Full detail:
 The Experiment 2 handout names this failure itself: *"a bad smell … too vague to be
 implemented."*
 
-**Procedure:** propose a threshold → record as `ASM-nn` in the gap analysis → test against it →
-report **`PASS (ASSUMED THRESHOLD ASM-nn)`**, never plain `PASS`. Proposed thresholds are
-listed in `docs/architecture/ARCHITECTURAL_DECISIONS.md` (ADR-012) and require confirmation.
+**Procedure:** thresholds are **decided and accepted** — see
+`docs/requirements/NFR_VERIFICATION_THRESHOLDS.md` and
+`docs/architecture/ADR-012-NFR-THRESHOLDS.md`. Results report as
+**`PASS (ENGINEERING THRESHOLD)`**, never plain `PASS`. Thresholds are scaled for a
+student/college local project; no production SLA is claimed.
 
 Two are unfalsifiable as written and will be reported as such: `NFR-13` "should **never** be
 lost" and `NFR-22` "accurately **every time**". Realistic proxies (tested backup/restore;
