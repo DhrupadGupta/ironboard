@@ -1,6 +1,13 @@
 # Ironboard — Phase Status
 
-**Updated:** 2026-08-16 · **Commit:** see git log · **Current phase:** **Phase 3 (database) COMPLETE** · Phase 4 NOT started
+**Updated:** 2026-08-16 · **Commit:** see git log ·
+**Current phase:** **Phase 3 (database) COMPLETE — self-review PASSED** · Phase 4 NOT started
+
+**Phase 3 self-review:** 12 checks, all answered against a live database rather than against
+documentation. 3 defects were found and fixed (ER-diagram drift, no disabled branch in the seed,
+partial CHECK-constraint coverage). Evidence:
+`docs/testing/evidence/phase3-selfreview-20260816T145257Z.log` — 136 tests passing, typecheck
+clean, clean rebuild from migrations verified.
 
 > Live status. Update on every phase transition and whenever a blocking decision is resolved.
 > **No status may be marked ✅ without a checkable artefact path.**

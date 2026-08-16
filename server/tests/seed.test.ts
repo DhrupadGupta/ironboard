@@ -16,8 +16,12 @@ beforeAll(async () => { db = testDb(); await applyPragmas(db); });
 afterAll(async () => { await db.$disconnect(); });
 
 describe('T-U-060 seed scale matches ADR-012 (student/college project)', () => {
-  it('3 branches, 1000 members, 5 plans, 90 days of attendance', async () => {
-    expect(await db.branch.count()).toBe(3);
+  it('3 operating branches + 1 disabled, 1000 members, 5 plans, 90 days of attendance', async () => {
+    expect(await db.branch.count()).toBe(4);
+    // AC-12 disables a branch, so the seed must contain one already disabled;
+    // otherwise the "disabled" half of that criterion has no fixture at all.
+    expect(await db.branch.count({ where: { status: 'active' } })).toBe(3);
+    expect(await db.branch.count({ where: { status: 'disabled' } })).toBe(1);
     expect(await db.membershipPlan.count()).toBe(5);
     // Tests in other files add probe members; assert the seed floor.
     expect(await db.member.count()).toBeGreaterThanOrEqual(1000);

@@ -3,8 +3,9 @@
 **Phase:** 3 — Database Implementation · **Date:** 2026-08-16
 **Status:** ✅ **IMPLEMENTED** — schema, migration, constraints, indexes, seed and tests exist.
 **Schema:** `server/prisma/schema.prisma` · **Migration:** `server/prisma/migrations/20260816135841_init/`
-**Seed:** `server/src/db/seed.ts` · **Reset:** `server/src/db/reset.ts` · **Tests:** `server/tests/` (63 passing)
-**Evidence:** `docs/testing/evidence/phase3-db-20260816T140858Z.log`
+**Seed:** `server/src/db/seed.ts` · **Reset:** `server/src/db/reset.ts` · **Tests:** `server/tests/` (136 passing)
+**Evidence:** `docs/testing/evidence/phase3-db-20260816T140858Z.log` (implementation) ·
+`docs/testing/evidence/phase3-selfreview-20260816T145257Z.log` (self-review)
 **Diagram:** `docs/diagrams/er/er-model.png` (`DIA-16`, ENHANCEMENT)
 **Engine:** SQLite (WAL) via Prisma 6 + `better-sqlite3` — ADR-005
 
@@ -223,6 +224,13 @@ below hold **even when application code is absent or wrong**.
 | `PlanExercise` | `sets > 0` · `reps > 0` |
 | `AttendanceDaily` | `visits >= 0` · `peakHour BETWEEN 0 AND 23` |
 | `TrainerAssignment` | `source IN ('workout_plan','pt_session','admin')` |
+| `MedicalRestriction` | `length(conditionCipher) > 0` |
+
+**All 36 are exercised.** `tests/checks.test.ts` (`T-U-030`) has one case per constraint: a row
+cloned from a real seeded row with exactly one value broken must be rejected. `T-U-031` is the
+positive control — the same clone with a legal value must be **accepted** (inside a rolled-back
+transaction), so a rejection cannot be an artefact of malformed test SQL. `T-U-032` re-reads the
+live DDL from `sqlite_master` and fails if the schema ever grows a CHECK that has no case.
 
 ### Partial unique indexes (2)
 
@@ -406,7 +414,7 @@ Scale — the ADR-012 🟦 **ENGINEERING VERIFICATION THRESHOLD** for a student/
 
 | Entity | Rows | Entity | Rows |
 |---|---|---|---|
-| Branch | 3 | AttendanceEvent | 11 792 |
+| Branch | 4 — **3 `active` · 1 `disabled`** (`AC-12`) | AttendanceEvent | 11 792 |
 | Role / Permission | 6 / 36 | AttendanceDaily | 270 |
 | Staff | 18 (incl. 1 `pending` for `AC-11`) | Equipment | 36 |
 | Member | 1 000 | MaintenanceSchedule | 36 |
@@ -414,7 +422,7 @@ Scale — the ADR-012 🟦 **ENGINEERING VERIFICATION THRESHOLD** for a student/
 | Membership | 1 000 — **725 ACTIVE · 175 EXPIRED · 100 CANCELLED** | Invoice | 952 |
 | MembershipEvent | 1 375 | Refund | 37 |
 | TrainerAssignment | 350 | LedgerEntry | 989 |
-| WorkoutPlan / PlanExercise | 253 / 960 | AuditEvent | 101 |
+| WorkoutPlan / PlanExercise | 250 / 960 | AuditEvent | 101 |
 | ProgressEntry | 840 | NotificationOutbox | 100 |
 | MedicalRestriction / Prospect | 40 / 40 | SessionSlot | 158 |
 
@@ -457,15 +465,24 @@ API and test layers.
 
 ---
 
-## 12. Open decisions
+## 12. Decision status
+
+`B-03`, `B-04` and `B-05` were **resolved** in the pre-Phase-3 decision review and the schema
+implements those resolutions. They are no longer open.
+
+| ID | Question | Resolution | Where it lives in the schema |
+|---|---|---|---|
+| `B-03` | Branch scoping | **RESOLVED** — descriptive attribute, not a tenant boundary | `docs/decisions/B-03-*` · §5; `Member.homeBranchId` / `Staff.homeBranchId` NULLABLE |
+| `B-04` | Five missing write paths | **RESOLVED** — `ENH-02/03/04/06/07` implemented, `ENH-05` withdrawn | `docs/decisions/B-04-*`; approval captured as data on `Refund` |
+| `B-05` | Membership state set | **RESOLVED** — exactly `ACTIVE` / `EXPIRED` / `CANCELLED` | `docs/decisions/B-05-*` · §4; CHECK + transition-guard trigger |
+
+Still open, and **not** database-blocking:
 
 | ID | Question | Assumed | Cost if wrong |
 |---|---|---|---|
-| `B-03` | Branch scoping | §5 | **Touches nearly every table** |
-| `B-04` | Five missing write paths | ⚠️ entities in §2 | Six mandatory stories non-functional |
-| `B-05` | Membership state set | §4 | State chart + `NFR-17` wrong |
-| — | `accessRules` shape | Open JSON | Two other criteria depend on it |
-| — | Data volumes | §11 | Performance NFRs unmeasurable |
+| `B-01` / `B-02` | Member login · authorisation model | Six roles incl. Member (`ENH-01`) | Service-layer RBAC, not schema |
+| `B-06` | Experiment numbering | Recorded unresolved in `PRE_PHASE_3_DECISION_REGISTER.md` | Submission labelling only |
+| — | `accessRules` shape (`AMB`) | Open JSON | Two other criteria depend on it |
 
 ---
 

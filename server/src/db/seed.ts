@@ -15,7 +15,8 @@
  * byte-identical data. ADR-012's verification thresholds depend on this.
  *
  * Scale — ADR-012 ENGINEERING VERIFICATION THRESHOLD, student/college project:
- *   3 branches · 1 000 members · 5 plans · 90 days attendance · ≤ 10 concurrent.
+ *   3 operating branches (+1 disabled, AC-12) · 1 000 members · 5 plans ·
+ *   90 days attendance · ≤ 10 concurrent.
  *   Deliberately NOT production scale.
  */
 import { PrismaClient } from '@prisma/client';
@@ -119,14 +120,25 @@ async function main(): Promise<void> {
   console.log(`  restored ${triggers.length} append-only / guard triggers`);
 
   // --- Branches (B-03: scoping attribute, not a tenant boundary) -----------
+  // N_BRANCHES active branches carry members/equipment/attendance, plus ONE
+  // disabled branch with no dependents so AC-12's "disables a branch" path has
+  // a seeded example. Without it nothing in the dataset exercised `disabled`.
   const branches = Array.from({ length: N_BRANCHES }, (_, i) => ({
     id: id('brn', i + 1, 3),
     code: `BR${String(i + 1).padStart(2, '0')}`,
     name: ['Ironboard Andheri', 'Ironboard Bandra', 'Ironboard Powai'][i]!,
-    status: i === N_BRANCHES - 1 ? 'active' : 'active',
+    status: 'active',
     createdAt: SEED_EPOCH, updatedAt: SEED_EPOCH,
   }));
-  await prisma.branch.createMany({ data: branches });
+  await prisma.branch.createMany({
+    data: [...branches, {
+      id: id('brn', N_BRANCHES + 1, 3),
+      code: `BR${String(N_BRANCHES + 1).padStart(2, '0')}`,
+      name: 'Ironboard Vashi (closed)',
+      status: 'disabled', // AC-12
+      createdAt: SEED_EPOCH, updatedAt: SEED_EPOCH,
+    }],
+  });
 
   // --- Roles & permissions (ADR-007) ---------------------------------------
   await prisma.role.createMany({

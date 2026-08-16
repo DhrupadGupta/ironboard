@@ -8,9 +8,12 @@
 '                NOT academic coverage.
 ' Required by  : Phase 2 instruction; supports DIA-09 (class) and EXP-5
 ' Traces to    : AC-01..AC-25, NFR-02, NFR-10, NFR-17, NFR-21, NFR-24, WF-02
-' Assumptions  : INC-04 (no source data model), ASM-05/ADR-014 (branchId, B-03 OPEN),
-'                ASM-13/ADR-013 (membership states, B-05 OPEN), ENH-02..ENH-06
-' Last verified: 2026-08-16 against docs/requirements/
+' Assumptions  : INC-04 (no source data model). B-03 and B-05 are now RESOLVED.
+' Last verified: 2026-08-16 against docs/requirements/ AND against the
+'                IMPLEMENTED schema at server/prisma/schema.prisma (Phase 3).
+'                Phase 3 self-review found this diagram had drifted from the
+'                implementation (4 states, withdrawn RefundRequest, wrong
+'                branch columns) and corrected it.
 ' ============================================================
 @startuml
 skinparam backgroundColor #0c0c09
@@ -78,13 +81,17 @@ package "Identity & Access" {
     * id : TEXT <<PK>>
     --
     * email : TEXT <<UQ>>
-    * passwordHash : TEXT <<argon2id>>
+    passwordHash : TEXT <<argon2id, NULL until activated>>
+    * fullName : TEXT
     * roleId : TEXT <<FK>>
-    branchId : TEXT <<FK>>
+    homeBranchId : TEXT <<FK, NULLABLE>>
     * status : TEXT <<pending|active|disabled>>
-    approvedById : TEXT <<FK>>
+    activationTokenHash : TEXT <<UQ>>
+    activationExpiresAt : DATETIME
+    approvedByStaffId : TEXT <<FK>>
     approvedAt : DATETIME
-    ' AC-11, NFR-11, ENH-06
+    ' AC-11 — activation link, NO password transmitted
+    ' B-03: homeBranchId NULLABLE (null = org-wide)
   }
   entity Session {
     * id : TEXT <<PK>>
@@ -103,13 +110,14 @@ package "Members & Health" {
     * id : TEXT <<PK>>
     --
     * memberCode : TEXT <<UQ>>
-    * name : TEXT
+    * fullName : TEXT
     * email : TEXT <<UQ>>
     * phone : TEXT
-    branchId : TEXT <<FK>>
+    homeBranchId : TEXT <<FK, NULLABLE>>
     passwordHash : TEXT
     createdAt : DATETIME
     ' AC-01 Member ID; NFR-02
+    ' B-03: homeBranchId NULLABLE, non-restrictive
   }
   entity MedicalRestriction {
     * id : TEXT <<PK>>
@@ -146,11 +154,13 @@ package "Membership Lifecycle" {
     --
     * memberId : TEXT <<FK>>
     * planId : TEXT <<FK>>
-    * state : TEXT <<Active|Expiring|Expired|Cancelled>>
+    * state : TEXT <<ACTIVE|EXPIRED|CANCELLED>>
     * startsAt : DATETIME
     * expiresAt : DATETIME
     cancelledAt : DATETIME
-    ' AC-17/18/19/20; NFR-17; ADR-013 (B-05 OPEN)
+    ' B-05 RESOLVED: exactly THREE states.
+    ' NO "EXPIRING" — AC-19 is a DERIVED predicate over expiresAt.
+    ' CHECK + transition trigger enforce this in the database.
   }
   entity MembershipEvent {
     * id : TEXT <<PK>>
@@ -198,9 +208,17 @@ package "Training" {
     ' AC-07; NFR-07
   }
   entity TrainerAssignment {
+    * id : TEXT <<PK>>
+    --
     * trainerId : TEXT <<FK>>
     * memberId : TEXT <<FK>>
-    ' NFR-10 "AUTHORIZED trainers" — resource-level RBAC
+    * source : TEXT <<workout_plan|pt_session|admin>>
+    grantedByStaffId : TEXT <<FK>>
+    * createdAt : DATETIME
+    revokedAt : DATETIME
+    ' ENH-20 — NFR-10 "AUTHORIZED trainers", per-member.
+    ' Written as a SIDE EFFECT of AC-06 and AC-08.
+    ' UNIQUE(trainerId, memberId) WHERE revokedAt IS NULL
   }
 }
 
@@ -284,19 +302,17 @@ package "Money" {
     idempotencyKey : TEXT <<UQ>>
     ' AC-22; NFR-22 idempotent
   }
-  entity RefundRequest {
-    * id : TEXT <<PK>>
-    --
-    * paymentId : TEXT <<FK>>
-    * status : TEXT <<pending|approved|rejected>>
-    approvedById : TEXT <<FK>>
-    ' AC-24 "APPROVED refund request" — ENH-05
-  }
   entity Refund {
     * id : TEXT <<PK>>
     --
-    * refundRequestId : TEXT <<FK,UQ>>
+    * paymentId : TEXT <<FK>>
     * amountMinor : INTEGER
+    approvedByStaffId : TEXT <<FK>>
+    * approvedAt : DATETIME
+    * approvalReference : TEXT
+    ' B-04: RefundRequest WITHDRAWN. AC-24 treats approval as an
+    ' EXTERNAL precondition, captured here as DATA.
+    ' TRIGGER: sum(refunds) <= payment.amountMinor  (NFR-24)
     * processedAt : DATETIME
     ' AC-24; NFR-24
   }
@@ -367,8 +383,7 @@ WorkoutPlan ||--o{ PlanExercise
 Exercise ||--o{ PlanExercise
 Equipment ||--o{ MaintenanceSchedule
 Payment ||--|| Receipt
-Payment ||--o{ RefundRequest
-RefundRequest ||--|| Refund
+Payment ||--o{ Refund
 Payment ||--o{ LedgerEntry
 Refund ||--o{ LedgerEntry
 
@@ -378,16 +393,24 @@ legend right
   | <<encrypted>> | field encryption at rest (NFR-10, NFR-21) |
   | ENH-nn | entity exists ONLY to unblock a Lab 1 story |
   | APPEND-ONLY | never updated or deleted (ADR-011) |
-  |= Open decision |= Effect |
-  | B-03 | branchId placement — ADR-014 assumed |
-  | B-04 | ENH-02..06 write paths — assumed |
-  | B-05 | Membership.state set — ADR-013 assumed |
+  |= Decision |= Status |
+  | B-03 | RESOLVED — homeBranchId NULLABLE on people; NOT NULL on Equipment/Attendance |
+  | B-04 | RESOLVED — ENH-05 RefundRequest WITHDRAWN |
+  | B-05 | RESOLVED — three states; EXPIRING is derived |
+  |= DB-enforced |= Count |
+  | CHECK constraints | 36 |
+  | Partial unique indexes | 2 |
+  | Triggers | 7 |
 endlegend
 
 note bottom
   INC-04: neither Lab 1 nor Lab 2 defines a data model.
   Every entity, attribute and type here is an ASSUMPTION derived
   from acceptance-criteria text. None of it is a sourced requirement.
+
+  IMPLEMENTED in Phase 3 — this diagram now mirrors
+  server/prisma/schema.prisma. If they diverge, the schema wins
+  and this diagram is the defect.
 end note
 
 @enduml

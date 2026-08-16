@@ -1,0 +1,86 @@
+PHASE 3 SELF-REVIEW — TEST EVIDENCE
+timestamp (UTC): 2026-08-16T14:52:57Z
+commit (pre-commit HEAD): e7978cae018c2da4317bac87590d43cf727be157
+branch: claude/analyze-repo-requirements-06itgc
+node: v22.22.2  npm: 10.9.7
+
+=== $ rm -f prisma/ironboard.db* && npm run db:reset (clean rebuild from migrations) ===
+
+> @ironboard/server@0.1.0 db:reset
+> tsx src/db/reset.ts
+
+✔ database reset and seeded: /home/user/ironboard/server/prisma/ironboard.db
+
+=== $ npm run db:seed (row counts) ===
+
+> @ironboard/server@0.1.0 db:seed
+> tsx src/db/seed.ts
+
+• clearing existing rows
+  restored 7 append-only / guard triggers
+• seeding 1000 members
+• seeding memberships (ACTIVE / EXPIRED / CANCELLED)
+• seeding trainer assignments, workout plans, progress
+• seeding 90 days of attendance
+• seeding payments, receipts, invoices, refunds, ledger
+
+✔ DEVELOPMENT SEED complete in 1258 ms
+┌─────────────────────┬────────┐
+│ (index)             │ Values │
+├─────────────────────┼────────┤
+│ Branch              │ 4      │
+│ Role                │ 6      │
+│ Permission          │ 36     │
+│ Staff               │ 18     │
+│ Member              │ 1000   │
+│ MembershipPlan      │ 5      │
+│ Membership          │ 1000   │
+│ MembershipEvent     │ 1375   │
+│ TrainerAssignment   │ 350    │
+│ WorkoutPlan         │ 250    │
+│ PlanExercise        │ 960    │
+│ ProgressEntry       │ 840    │
+│ MedicalRestriction  │ 40     │
+│ Prospect            │ 40     │
+│ SessionSlot         │ 158    │
+│ AttendanceEvent     │ 11792  │
+│ AttendanceDaily     │ 270    │
+│ Equipment           │ 36     │
+│ MaintenanceSchedule │ 36     │
+│ Payment             │ 952    │
+│ Receipt             │ 952    │
+│ Invoice             │ 952    │
+│ Refund              │ 37     │
+│ LedgerEntry         │ 989    │
+│ AuditEvent          │ 101    │
+│ NotificationOutbox  │ 100    │
+└─────────────────────┴────────┘
+membership states: ACTIVE=725 CANCELLED=100 EXPIRED=175
+
+=== $ npm run typecheck ===
+
+> @ironboard/server@0.1.0 typecheck
+> tsc --noEmit
+
+
+=== $ npm test ===
+
+> @ironboard/server@0.1.0 test
+> vitest run
+
+
+ RUN  v3.2.7 /home/user/ironboard/server
+
+ ✓ tests/seed.test.ts (11 tests) 2205ms
+   ✓ T-U-063 seeding is deterministic and reproducible > re-running the seed produces identical content  2064ms
+ ✓ tests/checks.test.ts (73 tests) 202ms
+ ✓ tests/constraints.test.ts (18 tests) 174ms
+ ✓ tests/membership.test.ts (10 tests) 129ms
+ ✓ tests/schema.test.ts (10 tests) 115ms
+ ✓ tests/relationships.test.ts (14 tests) 64ms
+
+ Test Files  6 passed (6)
+      Tests  136 passed (136)
+   Start at  14:53:08
+   Duration  9.14s (transform 201ms, setup 0ms, collect 508ms, tests 2.89s, environment 1ms, prepare 417ms)
+

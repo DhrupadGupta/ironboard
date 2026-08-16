@@ -47,7 +47,7 @@ enhancements; the stories they unblock are mandatory.
 | `AttendanceEvent` | `ENH-02` | `US-05`, `US-14` | "check-in data is recorded at the entrance" |
 | `MedicalRestriction` | `ENH-03` | `US-10` | "a member has a health condition logged" |
 | `Equipment`, `MaintenanceSchedule` | `ENH-04` | `US-13` | "a machine needs regular service" |
-| `RefundRequest` | `ENH-05` | `US-24` | "an approved refund request" |
+| ~~`RefundRequest`~~ | `ENH-05` **WITHDRAWN** (`B-04`) | `US-24` | "an approved refund request" — approval is an **external** precondition, captured as data on `Refund` |
 | `Staff.status = pending` | `ENH-06` | `US-11` | "a new staff member registers for access" |
 | `Prospect` | `ENH-07` | `US-03` | "a potential customer's details" |
 | `WorkoutPlan.isTemplate` | `ENH-08` | `US-06` | "chooses **or creates** a workout plan" |
@@ -65,33 +65,45 @@ enhancements; the stories they unblock are mandatory.
 | `WorkoutPlan.version` | `NFR-09` "without affecting existing data" |
 | `Payment/Invoice.idempotencyKey` | `NFR-22`, `AC-22` dual trigger paths |
 
-## Open decisions baked into this model
+## Decisions baked into this model — now RESOLVED
 
-| ID | Effect on the model | Assumed |
+The three decisions below were open when this diagram was first drawn. They were resolved in the
+pre-Phase-3 decision review, and the diagram was **redrawn from the implemented schema** during
+the Phase 3 self-review.
+
+| ID | Effect on the model | Resolution |
 |---|---|---|
-| `B-03` | Which entities carry `branchId` | ADR-014 — `Member`, `Staff`, `Equipment`, attendance. **Retrofitting later touches nearly every table.** |
-| `B-04` | Whether the `ENH-02`…`ENH-07` entities are correct | Designed as above |
-| `B-05` | `Membership.state` value set | ADR-013 — Active / Expiring / Expired / Cancelled. `AC-20` filters only two of the four. |
+| `B-03` | Which entities carry a branch column | **Descriptive, not isolating.** `Member.homeBranchId` and `Staff.homeBranchId` are NULLABLE; `Equipment`, `AttendanceEvent`, `AttendanceDaily` carry a NOT NULL `branchId`; `MembershipPlan` carries none. |
+| `B-04` | Whether the `ENH-02`…`ENH-07` entities are correct | `ENH-02/03/04/06/07` kept; **`ENH-05` (`RefundRequest`) withdrawn** — approval is external and stored as data on `Refund`. |
+| `B-05` | `Membership.state` value set | **Exactly three:** `ACTIVE` / `EXPIRED` / `CANCELLED`. `EXPIRING` is a derived predicate, never a stored state. |
 
 ## Cross-diagram consistency
 
 `Membership.state` values **must** match the state chart (`DIA-07`) exactly.
 Entity names **must** match the class diagram (`DIA-09`) when it is built.
 Both checks are required by the skill and are currently pending, since `DIA-07` and `DIA-09`
-do not exist yet.
+do not exist yet. The diagram now matches `server/prisma/schema.prisma`, so both future diagrams
+must be drawn against the same three states and the same entity set.
 
 ## Verification
 
 | Check | Result |
 |---|---|
 | Renders without exception | ✅ 0 exceptions |
-| PNG read and inspected | ✅ 3426 × 1426, ratio 2.40 (within the 2.5 limit) |
+| **Matches the implemented schema** | ✅ re-verified in the Phase 3 self-review, which found and fixed drift (4 states, withdrawn `RefundRequest`, wrong branch columns) |
+| PNG read and inspected | ✅ 3655 × 1429, ratio **2.56** — see the note below |
 | All entity names, attributes, cardinalities legible | ✅ |
 | Crow's-foot cardinality on every relation | ✅ |
 
-**Known layout limitation, stated honestly:** `Branch` sits at the far right while four of its
-five children sit left of centre, so those relations cross most of the canvas. Both
-`linetype ortho` and `linetype polyline` were tried; `ortho` crashes Graphviz here and
-`polyline` produced a byte-identical layout. The lines remain individually traceable, so the
-diagram was accepted rather than split. If `B-03` resolves to "branch is a label only", those
-edges disappear and the issue resolves itself.
+**Aspect ratio, stated honestly:** the redraw is 2.56 wide-to-tall, just past the skill's 2.5
+guideline. The overrun comes from adding the resolved-decision legend, not from added entities.
+Every entity name, attribute and cardinality was read back from the PNG and is legible, so the
+diagram was accepted at 2.56 rather than split into two figures. **This is a known, accepted
+deviation, not a passed check.**
+
+**Known layout limitation, stated honestly:** `Branch` sits at the far right while its children
+sit left of centre, so those relations cross most of the canvas. Both `linetype ortho` and
+`linetype polyline` were tried; `ortho` crashes Graphviz here and `polyline` produced a
+byte-identical layout. The lines remain individually traceable, so the diagram was accepted
+rather than split. `B-03` resolved to "descriptive attribute", which keeps the columns but
+removes any isolation semantics from these edges.
