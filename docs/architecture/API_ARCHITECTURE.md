@@ -250,10 +250,39 @@ All 25 functional requirements are covered by at least one endpoint.
 
 ---
 
-## 12. Blocked endpoints
+## 12. Blocked endpoints — ✅ RESOLVED, none remain
 
-Six endpoints cannot be built as specified until `B-04` is decided. Their `ENH` counterparts are
-the proposed unblock.
+**`B-04` is resolved. The blocked count is 6 → 0.** See `docs/decisions/B-04_API_DECISIONS.md`.
+
+All six endpoints were always **MANDATORY**; Phase 2 mislabelled them as blocked because a
+proposed *enhancement* did not yet exist — inverting the correct priority. A `Given` clause is
+a **precondition**, not a system obligation.
+
+| Endpoint | AC | Verdict | Enhancement status |
+|---|---|---|---|
+| `GET /attendance/members` | `AC-05` | **MANDATORY, not blocked** | `ENH-02` required for production use |
+| `GET /reports/attendance/daily` | `AC-14` | **MANDATORY, not blocked** | `ENH-02` (shared) |
+| `GET /members/:id/medical` | `AC-10` | **MANDATORY, not blocked** | `ENH-03` required, **scope reduced** to a field at registration |
+| `POST /equipment/:id/maintenance-schedule` | `AC-13` | **MANDATORY, not blocked** | `ENH-04` → **IMPLIED-MANDATORY** |
+| `POST /refunds` | `AC-24` | **MANDATORY, not blocked** | `ENH-05` → **NOT REQUIRED** (over-engineered) |
+| `POST /staff/:id/approve` | `AC-11` | **MANDATORY, not blocked** | `ENH-06` **ENHANCEMENT**, recommended |
+
+### Endpoints withdrawn
+
+`POST /refund-requests` and `POST /refund-requests/:id/approve` are **removed**. `AC-24` reads
+"Given an **approved** refund request … the accountant **enters the refund details**" — the
+approval is an *external precondition*, not a workflow the system must own. Building it would
+invent a requirement. The `Refund` record instead captures `approvedBy`, `approvedAt` and
+`approvalReference` as data.
+
+### Endpoint added
+
+`POST /members/:id/memberships` — **IMPLIED-MANDATORY (`ENH-19`)**. `B-05` §7 found that **no
+story creates a membership**, yet `US-17`, `US-18`, `US-19` and `US-20` all presuppose one.
+
+**Revised count: 57 → 56** (41 academic, 15 enhancement).
+
+### Superseded — the original blocked table
 
 | Blocked | Blocked by | Unblocked by |
 |---|---|---|

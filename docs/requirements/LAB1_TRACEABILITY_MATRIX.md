@@ -217,6 +217,7 @@ Homepage: `Dept / 03` · "Administration" · badge `5 stories` ·
 | **NFR** | `NFR-11` Security — "Only administrators should be able to approve staff accounts." |
 | **HP** | "Approve new staff accounts" (line 354) |
 | **Sub-behaviours** | `FR-SUB-10` send login details |
+| **Implementation interpretation** | ⚠️ The requirement wording above is **preserved verbatim and is not rewritten**. Implementation sends the sign-in URL, the login identifier and the assigned role (genuine "login details") **plus a single-use link to set a password**, rather than emailing a password. Classified **ENGINEERING SECURITY IMPROVEMENT / IMPLEMENTATION INTERPRETATION** — see `docs/decisions/DEVIATIONS.md` §1. No NFR constrains credential transport. Reversible if a literal reading is required. |
 | **Depends on** | Auth/identity system (`AMB-03`, `ASM-02`/`ASM-03`) |
 | **Gaps** | ⚠️ **Foundational but underspecified.** Implies staff self-registration (`ACT-08`), an account lifecycle (pending → active), a **rejection** path (`INC-01`), and role assignment at approval — none stated. Sending login details implies credential generation/delivery, which raises a security concern not addressed by any NFR |
 | **Impl / Test** | ⬜ / ⬜ |

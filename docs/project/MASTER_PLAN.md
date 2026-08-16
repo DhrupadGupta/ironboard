@@ -677,8 +677,8 @@ Carried from `docs/project/REQUIREMENT_GAP_ANALYSIS.md`, updated for this phase.
 | `ENH-01` | **Member role and portal** | This phase's role list; no Lab 1 story owns it | High |
 | `ENH-02` | **Check-in capture** | `AC-14` precondition; unblocks `US-05` **and** `US-14` | **Critical** |
 | `ENH-03` | **Medical restriction entry** | `AC-10` precondition; unblocks `US-10` | **Critical** |
-| `ENH-04` | **Equipment register CRUD** | `AC-13` precondition; unblocks `US-13` | **Critical** |
-| `ENH-05` | **Refund request + approval** | `AC-24` precondition; unblocks `US-24` | **Critical** |
+| `ENH-04` | **Equipment register CRUD** | `AC-13` precondition; unblocks `US-13` | **IMPLIED-MANDATORY** |
+| `ENH-05` | ~~Refund request + approval~~ | **NOT REQUIRED** — `AC-24` treats approval as an external precondition; building a workflow invents a requirement | Withdrawn |
 | `ENH-06` | **Staff self-registration** | `AC-11` precondition; unblocks `US-11` | **Critical** |
 | `ENH-07` | Prospect record | `AC-03` references prospect details | High |
 | `ENH-08` | Workout plan template library | `AC-06` "chooses or creates" | Medium |
@@ -692,6 +692,8 @@ Carried from `docs/project/REQUIREMENT_GAP_ANALYSIS.md`, updated for this phase.
 | `ENH-16` | Seed / demo dataset | The five timing NFRs cannot be measured without data | High |
 | `ENH-17` | Performance budgets in CI | Keeps the five timing NFRs honest | Medium |
 | `ENH-18` | Constraints list + Definition of Done | `EXP-2` Step 2, `INC-02` | Medium |
+| `ENH-19` | **Create a membership** (`POST /members/:id/memberships`) | No story creates one, yet four stories presuppose it | **IMPLIED-MANDATORY** |
+| `ENH-20` | **`TrainerAssignment` record** | `NFR-10` per-member reading needs it; write as a side effect of `AC-06` | **IMPLIED-MANDATORY** |
 
 **`ENH-02` … `ENH-06` are critical**: without them, six of the 25 mandatory Lab 1 stories
 cannot function. They are enhancements only in the sense that no source document assigns
@@ -699,19 +701,25 @@ them an owner — the functionality they unblock **is** mandatory.
 
 ---
 
-## 28. Open decisions blocking Phase 2
+## 28. Open decisions — status after the B-03/B-04/B-05 review
 
-| ID | Decision | Assumed for now | Needed by |
+**Four of six blocking decisions are now RESOLVED.** See `docs/decisions/`.
+
+| ID | Decision | Status | Outcome |
 |---|---|---|---|
-| `B-03` | Is branch a data-scoping boundary? | `ASM-05` — members + staff scoped, plans global | **Phase 3 schema** |
-| `B-04` | Who creates the five missing record types? | `ENH-02`…`ENH-06` as designed above | **Phase 2 diagrams** |
-| `B-05` | Membership state set | `ASM-13` — Active / Expiring / Expired / Cancelled | **Phase 2 state chart** |
-| `B-06` | Which experiment numbering governs? | Label by artefact (`ASM-16`) | Phase 8 submission |
+| `B-01` | Do members log in? | ✅ Resolved (Phase 1) | Yes — tracked as `ENH-01`, excluded from academic coverage |
+| `B-02` | Authorisation model | ✅ Resolved (Phase 1) | Six roles, deny-by-default (ADR-007) |
+| `B-03` | Is branch a data-scoping boundary? | ✅ **RESOLVED** | **Non-isolating scoping attribute.** Classified an **ASSUMPTION** — only four source sentences mention branches, and `US-12` argues *against* isolation. `Member`/`Staff` → nullable `homeBranchId`; `Equipment`/attendance → NOT NULL `branchId`; plans global. Supersedes ADR-014 |
+| `B-04` | Who creates the five missing record types? | ✅ **RESOLVED** | **None of the six endpoints was actually blocked.** All were always MANDATORY. `ENH-05` withdrawn as over-engineered; `ENH-04` reclassified IMPLIED-MANDATORY |
+| `B-05` | Membership state set | ✅ **RESOLVED** | **THREE states**, not four: `ACTIVE`, `EXPIRED`, `CANCELLED`. `Expiring` is a **derived predicate**, not a stored state. Supersedes ADR-013 |
+| `B-06` | Which experiment numbering governs? | ⚠️ **OPEN** | Mitigated by labelling per artefact (`ASM-16`); affects submission labelling only |
 
-`B-01` and `B-02` are **resolved** by this phase's instruction. The four above are not, and are
-proceeding under stated assumptions that need confirmation.
+### Two new findings from the review
 
----
+| ID | Finding | Classification |
+|---|---|---|
+| `ENH-19` | **No user story creates a membership.** `US-17`, `US-18`, `US-19` and `US-20` all presuppose one. Sixth missing write path | **IMPLIED-MANDATORY** |
+| `ENH-20` | `NFR-10` under the chosen per-member reading needs a `TrainerAssignment` record no story creates. Minimum: write it as a side effect of `AC-06` | **IMPLIED-MANDATORY** |
 
 ## 29. Related documents
 

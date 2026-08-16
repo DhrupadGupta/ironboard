@@ -1,6 +1,6 @@
 # Ironboard — Phase Status
 
-**Updated:** 2026-08-16 · **Commit:** see git log · **Current phase:** 1 complete → 2 gated
+**Updated:** 2026-08-16 · **Commit:** see git log · **Current phase:** 2 architecture complete · B-03/B-04/B-05 resolved · Phase 3 NOT started
 
 > Live status. Update on every phase transition and whenever a blocking decision is resolved.
 > **No status may be marked ✅ without a checkable artefact path.**
@@ -25,8 +25,8 @@
 |---|---|---|---|
 | 0 | Analysis & skills | ✅ | — |
 | **1** | **Master plan** | ✅ | — |
-| 2 | Requirements & design | ⛔ | **`B-03`, `B-04`, `B-05`** |
-| 3 | Foundation | 🔴 | Phase 2 diagrams; **`B-03`** |
+| 2 | Architecture ✅ / Requirements & design 🔴 | 🟡 | — (`B-03`,`B-04`,`B-05` ✅ resolved) |
+| 3 | Foundation | 🔴 | Phase 2b diagrams (`B-03` ✅ cleared) |
 | 4 | Department modules | 🔴 | Phase 3 |
 | 5 | Frontend | 🔴 | Phase 3 primitives |
 | 6 | Cross-cutting | 🔴 | Phase 4 |
@@ -91,7 +91,7 @@
 |---|---|---|
 | System architecture | ✅ | `docs/architecture/SYSTEM_ARCHITECTURE.md` |
 | Database design | ✅ | `docs/architecture/DATABASE_DESIGN.md` |
-| API architecture (57 endpoints) | ✅ | `docs/architecture/API_ARCHITECTURE.md` |
+| API architecture (56 endpoints after B-04) | ✅ | `docs/architecture/API_ARCHITECTURE.md` |
 | Security architecture | ✅ | `docs/architecture/SECURITY_ARCHITECTURE.md` |
 | Architecture diagram | ✅ | `docs/diagrams/architecture/architecture.png` (`DIA-15`, ENH) |
 | ER / data model diagram | ✅ | `docs/diagrams/er/er-model.png` (`DIA-16`, ENH) |
@@ -105,9 +105,10 @@ every table.
 
 ---
 
-## Phase 2b — Requirements & design diagrams ⛔
+## Phase 2b — Requirements & design diagrams 🔴
 
-**Blocked.** Three decisions must be made before the diagrams can be drawn correctly.
+**Unblocked.** `B-03`, `B-04` and `B-05` are resolved; 11 of 12 mandatory diagrams have no remaining
+blocker, and `DIA-12` may proceed under the stated `ASM-09` assumption.
 
 ### Requirements-phase documents (owner: `requirements-traceability`)
 
@@ -130,16 +131,16 @@ every table.
 | `DIA-04` | Use case diagram | 🔴 | — |
 | `DIA-05` | Use case documentation | 🔴 | — |
 | `DIA-06` | Activity diagram | 🔴 | — |
-| `DIA-07` | State chart (membership) | ⛔ | **`B-05`** |
+| `DIA-07` | State chart (membership) | 🔴 | ✅ cleared — 3 states (`B-05`) |
 | `DIA-08` | Sequence diagram | 🔴 | — |
-| `DIA-09` | Class diagram | ⛔ | **`B-03`** (branch scoping changes the model) |
-| `DIA-10` | State transition (2nd entity) | ⛔ | **`B-05`**, `AMB-08` |
+| `DIA-09` | Class diagram | 🔴 | ✅ cleared (`B-03`) |
+| `DIA-10` | State transition (2nd entity) | 🔴 | ✅ cleared (`B-05`); `AMB-08` noted |
 | `DIA-11` | Collaboration diagram | 🔴 | `CON-03` — no policy lab slot |
 | `DIA-12` | UI design (three golden rules) | 🔴 | `ASM-09` — rules not in any source |
 | `DIA-13` | Control flow model | 🚫 | Taught only; no lab assigns it |
 | `DIA-14` | Burndown chart | 🔴 | Policy Lab 8, *proposed* |
-| `DIA-15` | Architecture diagram | 🚫 | Taught only; no lab assigns it |
-| `DIA-16` | ER / data model | ⛔ | **`B-03`** · `ENH-12`, not academic coverage |
+| `DIA-15` | Architecture diagram | ✅ built | ENHANCEMENT — counts 0 toward mandatory |
+| `DIA-16` | ER / data model | ✅ built | ENHANCEMENT — counts 0 toward mandatory |
 
 ---
 
@@ -147,8 +148,8 @@ every table.
 
 | Phase | Deliverables | Notes |
 |---|---|---|
-| 3 Foundation | Scaffold, Prisma schema, migrations, auth, RBAC, API skeleton, design-system primitives | ⛔ on `B-03` |
-| 4 Modules | D01 → D04 → D02 → D05 → D03 (dependency order, not numeric) | Six stories ⛔ on `B-04` |
+| 3 Foundation | Scaffold, Prisma schema, migrations, auth, RBAC, API skeleton, design-system primitives | ✅ unblocked (`B-03`) |
+| 4 Modules | D01 → D04 → D02 → D05 → D03 (dependency order, not numeric) | ✅ six stories unblocked (`B-04`) |
 | 5 Frontend | Module screens, mobile nav (`ENH-11`) | — |
 | 6 Cross-cutting | Outbox, reporting, audit log, scheduler | — |
 | 7 Verification | 25 AC suites, 25 NFR verifications, all test levels | 15 NFRs need ADR-012 confirmation |
@@ -174,43 +175,59 @@ every table.
 
 | Covered | Total |
 |---|---|
-| 0 | 18 (`ENH-01`…`ENH-18`) |
+| 0 | 19 (`ENH-01`…`ENH-20`, less withdrawn `ENH-05`) |
 
 ---
 
 ## Blocking decisions
 
-| ID | Question | Assumed | Blocks | Needed by |
-|---|---|---|---|---|
-| `B-03` | Is branch a data-scoping boundary? | `ASM-05` / ADR-014 — members + staff scoped, plans global | `DIA-09`, `DIA-16`, entire Phase 3 schema | **Phase 2** |
-| `B-04` | Who creates the five missing record types? | `ENH-02`…`ENH-06` | `US-05`, `US-10`, `US-11`, `US-13`, `US-14`, `US-24` | **Phase 2** |
-| `B-05` | Membership state set | `ASM-13` / ADR-013 — Active/Expiring/Expired/Cancelled | `DIA-07`, `DIA-10`, `NFR-17` | **Phase 2** |
-| `B-06` | Which experiment numbering governs? | `ASM-16` — label by artefact | Phase 8 labelling | Phase 8 |
+**Resolved in the B-03/B-04/B-05 decision review** — see `docs/decisions/`.
 
-`B-01` and `B-02` were resolved in Phase 1.
+| ID | Question | Status | Outcome |
+|---|---|---|---|
+| `B-01` | Do members log in? | ✅ Resolved | Yes — `ENH-01`, excluded from academic coverage |
+| `B-02` | Authorisation model | ✅ Resolved | Six roles, deny-by-default |
+| `B-03` | Branch a scoping boundary? | ✅ **RESOLVED** | Non-isolating attribute; classified an **ASSUMPTION** |
+| `B-04` | Five missing write paths | ✅ **RESOLVED** | 6 blocked endpoints → **0**; all were always MANDATORY |
+| `B-05` | Membership state set | ✅ **RESOLVED** | **3 states**, not 4 |
+| `B-06` | Experiment numbering | ⚠️ **OPEN** | Labelling only; mitigated by naming per artefact |
 
-### The five blocked stories
+### Blocked stories — cleared
 
-Six Lab 1 stories depend on data no story creates. Marked ⛔ until `B-04` is confirmed.
+The six previously-blocked stories (`US-05`, `US-10`, `US-11`, `US-13`, `US-14`, `US-24`) are
+**no longer blocked**. Each needs a minimal write path, not the full enhancement originally
+proposed. `ENH-05` was withdrawn entirely as over-engineered.
 
-| Story | Blocked by | Enhancement that unblocks it |
+### New findings
+
+| ID | Finding | Classification |
 |---|---|---|
-| `US-05` Check attendance | `AC-14` check-in precondition | `ENH-02` |
-| `US-14` Monitor attendance | `AC-14` check-in precondition | `ENH-02` |
-| `US-10` Medical restrictions | `AC-10` "health condition logged" | `ENH-03` |
-| `US-13` Equipment schedules | `AC-13` "machine needs service" | `ENH-04` |
-| `US-24` Process refunds | `AC-24` "approved refund request" | `ENH-05` |
-| `US-11` Approve staff accounts | `AC-11` "staff registers for access" | `ENH-06` |
+| `ENH-19` | No user story creates a membership — sixth missing write path | **IMPLIED-MANDATORY** |
+| `ENH-20` | `TrainerAssignment` needed for `NFR-10`'s per-member reading | **IMPLIED-MANDATORY** |
+
+---
+
+## Mandatory diagram coverage
+
+**0 / 12.** See `docs/project/MANDATORY_DIAGRAM_COVERAGE.md` for the per-diagram breakdown.
+
+`DIA-15` and `DIA-16` are complete but are **enhancements** and contribute **0** to this count.
+The course policy lists "Knowledge of ER diagram" only in the **Prerequisite** column, never as
+an output — verified against the original table.
+
+**11 of 12 are now fully unblocked** (`B-03` and `B-05` cleared `DIA-07`, `DIA-09`, `DIA-10`).
+`DIA-12` may proceed under the stated `ASM-09` assumption, since no supplied document
+enumerates the three golden rules.
 
 ---
 
 ## Provisional decisions to confirm
 
-| ADR | Decision | Risk if wrong |
+| ADR | Decision | Status |
 |---|---|---|
-| ADR-012 | Assumed thresholds for 15 unquantified NFRs | Invented numbers reported as requirements |
-| ADR-013 | Four membership states | State chart and `NFR-17` both wrong |
-| ADR-014 | Branch as a scoping column | **Most expensive to retrofit — touches nearly every table** |
+| ADR-012 | Assumed thresholds for 15 unquantified NFRs | ⚠️ **Still provisional** — needs confirmation |
+| ADR-013 | ~~Four membership states~~ | ❌ **SUPERSEDED** by `B-05` — three states |
+| ADR-014 | ~~Branch as a NOT NULL scoping column~~ | ❌ **SUPERSEDED** by `B-03` — nullable `homeBranchId` on people |
 
 ---
 

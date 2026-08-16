@@ -146,7 +146,19 @@ requirement. Logged as an assumption.
 
 ## 4. Membership state machine
 
-**[PROVISIONAL — `B-05` unresolved.]** ADR-013.
+**✅ RESOLVED — `B-05`.** See `docs/decisions/B-05_MEMBERSHIP_STATE_MACHINE.md`.
+**Supersedes ADR-013.** The source supports **THREE** persisted states, not four:
+`ACTIVE`, `EXPIRED`, `CANCELLED` — each appears in Lab 1 as a quoted status value.
+**`Expiring` is NOT a state** — `AC-19` "expiring soon (e.g., in 7 days)" is a *predicate over
+`expiresAt`*, never "set status to". Storing it would also hide rows from `AC-20`'s two named
+filters. It is computed:
+`isExpiringSoon ≡ state = ACTIVE ∧ (expiresAt − now) ≤ 7d`.
+
+⚠️ **New finding (`B-05` §7): no user story creates a membership.** Transition T1 has no
+source. Tracked as `ENH-19`, **IMPLIED-MANDATORY** — without it `US-17`, `US-18`, `US-19` and
+`US-20` have nothing to operate on.
+
+The diagram below retains the original four-state proposal for history and is **superseded**.
 
 ```
             ┌──────────────────────────────────────────┐
@@ -186,7 +198,18 @@ state chart (`DIA-07`).
 
 ## 5. Branch scoping
 
-**[PROVISIONAL — `B-03` unresolved. The most expensive decision to get wrong.]** ADR-014.
+**✅ RESOLVED — `B-03`.** See `docs/decisions/B-03_DECISION.md`. **Supersedes ADR-014.**
+Branch is a **non-isolating scoping attribute**. Only four source sentences mention branches at
+all, and `US-12` — "all locations can be **monitored from one system**" — argues *against*
+tenant isolation. Classification: **ASSUMPTION**, not a requirement.
+
+**Change from the Phase 2 proposal:** `Member.branchId` and `Staff.branchId` become
+**`homeBranchId`, NULLABLE** — descriptive, not restrictive. No source restricts a member or a
+staff member to one location. `Equipment` and attendance keep a **NOT NULL** `branchId`
+(physical reality; `AC-14` "recorded at the entrance"). Plans stay global.
+**No row-level tenant isolation. Admin reporting is cross-branch by default.**
+
+The table below reflects the Phase 2 proposal and is superseded on the two nullability rows.
 
 | Entity | `branchId`? | Rationale |
 |---|---|---|

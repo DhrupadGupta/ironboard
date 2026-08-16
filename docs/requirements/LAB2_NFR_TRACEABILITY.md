@@ -159,7 +159,9 @@ All 25 pairings below are therefore **exact**, not reconstructed from reading or
 | **Quantified** | ⚠️ Binary — decidable, but "authorized" is undefined |
 | **Verification** | Access-control tests: every non-trainer role receives 403 on medical fields |
 | **Blocker** | `AMB-03` — **no authentication or authorisation model exists in any source** |
-| **Note** | Says "**authorized** trainers", not "trainers" — implies per-member trainer assignment, stricter than a plain role check. `FEA-01` corroborates: "medical notes, visible to the right roles only" |
+| **Note** | Says "**authorized** trainers", not "trainers". Requirement wording preserved verbatim above. |
+| **Interpretation (B-05 review)** | ⚠️ **Genuinely ambiguous — the source does not decide it.** *Reading A (role-based):* any user with the Trainer role, by parallel construction with `NFR-21` "authorized **staff**". *Reading B (per-member):* only trainers assigned to that member — supported because "authorized" would be redundant under Reading A. **Reading B is chosen** because it is a strict subset of A: implementing B satisfies the requirement under **both** readings, whereas implementing A fails if B was intended. See `docs/decisions/DEVIATIONS.md` §2. |
+| **Consequence** | Reading B needs a `TrainerAssignment` record that **no user story creates**. Minimum implementation: create it as a side effect of `AC-06` (a trainer assigning a workout plan is authorised for that member). Tracked as `ENH-20`, **IMPLIED-MANDATORY**. |
 | **Status** | ⬜ |
 
 ### NFR-11 — Security
