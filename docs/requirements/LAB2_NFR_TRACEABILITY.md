@@ -387,7 +387,7 @@ All 25 pairings below are therefore **exact**, not reconstructed from reading or
 
 | Category | Count | % | NFR IDs |
 |---|---|---|---|
-| Availability | 6 | 24 % | 03, 08, 15, 20, 25 *(+08 conditional)* |
+| Availability | 5 | 20 % | 03, 08, 15, 20, 25 |
 | Performance | 5 | 20 % | 01, 06, 14, 18, 23 |
 | Reliability | 5 | 20 % | 04, 07, 13, 19, 22 |
 | Data Integrity | 3 | 12 % | 02, 17, 24 |

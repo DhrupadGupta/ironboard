@@ -340,10 +340,10 @@ Given / When / Then. **Source: `[LAB1]` pp.5–9.**
 | Category | Count | IDs |
 |---|---|---|
 | Performance | 5 | NFR-01, 06, 14, 18, 23 |
-| Availability | 6 | NFR-03, 08, 15, 20, 25 *(and NFR-08 conditional)* |
+| Availability | 5 | NFR-03, 08, 15, 20, 25 |
 | Reliability | 5 | NFR-04, 07, 13, 19, 22 |
 | Security | 3 | NFR-10, 11, 21 |
-| Data Integrity | 4 | NFR-02, 17, 24 *(3 strictly)* |
+| Data Integrity | 3 | NFR-02, 17, 24 |
 | Usability | 2 | NFR-05, 16 |
 | Maintainability | 1 | NFR-09 |
 | Scalability | 1 | NFR-12 |
