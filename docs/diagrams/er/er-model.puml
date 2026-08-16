@@ -1,0 +1,393 @@
+' ============================================================
+' Ironboard — ER / Data Model
+' Diagram ID   : DIA-16
+' Status       : ENHANCEMENT
+'                No lab assigns an ER diagram. Built because Lab 1 and
+'                Lab 2 define NO data model (INC-04), so every attribute
+'                below is an ASSUMPTION, not a requirement.
+'                NOT academic coverage.
+' Required by  : Phase 2 instruction; supports DIA-09 (class) and EXP-5
+' Traces to    : AC-01..AC-25, NFR-02, NFR-10, NFR-17, NFR-21, NFR-24, WF-02
+' Assumptions  : INC-04 (no source data model), ASM-05/ADR-014 (branchId, B-03 OPEN),
+'                ASM-13/ADR-013 (membership states, B-05 OPEN), ENH-02..ENH-06
+' Last verified: 2026-08-16 against docs/requirements/
+' ============================================================
+@startuml
+skinparam backgroundColor #0c0c09
+skinparam defaultFontColor #f4f3ec
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 11
+skinparam shadowing false
+skinparam roundCorner 0
+skinparam ArrowColor #cbff3d
+skinparam linetype polyline
+skinparam nodesep 12
+skinparam ranksep 30
+skinparam class {
+  BackgroundColor #151511
+  BorderColor #6b6b60
+  FontColor #f4f3ec
+  AttributeFontColor #a9a89c
+}
+skinparam package {
+  BackgroundColor #0c0c09
+  BorderColor #cbff3d
+  FontColor #cbff3d
+}
+skinparam legend {
+  BackgroundColor #151511
+  BorderColor #6b6b60
+  FontColor #f4f3ec
+}
+skinparam note {
+  BackgroundColor #1e1e18
+  BorderColor #6b6b60
+  FontColor #f4f3ec
+}
+hide circle
+hide empty methods
+
+title Ironboard — ER / Data Model (DIA-16, ENHANCEMENT — every attribute is an assumption, INC-04)
+
+package "Identity & Access" {
+  entity Branch {
+    * id : TEXT <<PK>>
+    --
+    * name : TEXT
+    * status : TEXT <<active|disabled>>
+    createdAt : DATETIME
+    ' AC-12 add / update / DISABLE
+  }
+  entity Role {
+    * id : TEXT <<PK>>
+    --
+    * key : TEXT <<UQ>>
+    * name : TEXT
+    ' 6 roles; Member = ENH-01
+  }
+  entity Permission {
+    * id : TEXT <<PK>>
+    --
+    * key : TEXT <<UQ>>
+  }
+  entity RolePermission {
+    * roleId : TEXT <<FK>>
+    * permissionId : TEXT <<FK>>
+  }
+  entity Staff {
+    * id : TEXT <<PK>>
+    --
+    * email : TEXT <<UQ>>
+    * passwordHash : TEXT <<argon2id>>
+    * roleId : TEXT <<FK>>
+    branchId : TEXT <<FK>>
+    * status : TEXT <<pending|active|disabled>>
+    approvedById : TEXT <<FK>>
+    approvedAt : DATETIME
+    ' AC-11, NFR-11, ENH-06
+  }
+  entity Session {
+    * id : TEXT <<PK>>
+    --
+    * tokenHash : TEXT <<UQ>>
+    * subjectId : TEXT
+    * subjectType : TEXT <<staff|member>>
+    * expiresAt : DATETIME
+    revokedAt : DATETIME
+    ' ADR-006 revocable; AC-11, AC-17
+  }
+}
+
+package "Members & Health" {
+  entity Member {
+    * id : TEXT <<PK>>
+    --
+    * memberCode : TEXT <<UQ>>
+    * name : TEXT
+    * email : TEXT <<UQ>>
+    * phone : TEXT
+    branchId : TEXT <<FK>>
+    passwordHash : TEXT
+    createdAt : DATETIME
+    ' AC-01 Member ID; NFR-02
+  }
+  entity MedicalRestriction {
+    * id : TEXT <<PK>>
+    --
+    * memberId : TEXT <<FK>>
+    * condition : TEXT <<encrypted>>
+    * severity : TEXT
+    recordedById : TEXT <<FK>>
+    ' AC-10, NFR-10 — ENH-03 (no story writes this)
+  }
+  entity Prospect {
+    * id : TEXT <<PK>>
+    --
+    * name : TEXT
+    * phone : TEXT
+    email : TEXT
+    ' AC-03 — ENH-07 (no story creates this)
+  }
+}
+
+package "Membership Lifecycle" {
+  entity MembershipPlan {
+    * id : TEXT <<PK>>
+    --
+    * name : TEXT
+    * priceMinor : INTEGER
+    * durationDays : INTEGER
+    * accessRules : TEXT <<JSON>>
+    * published : BOOLEAN
+    ' AC-16 price/duration/access rules
+  }
+  entity Membership {
+    * id : TEXT <<PK>>
+    --
+    * memberId : TEXT <<FK>>
+    * planId : TEXT <<FK>>
+    * state : TEXT <<Active|Expiring|Expired|Cancelled>>
+    * startsAt : DATETIME
+    * expiresAt : DATETIME
+    cancelledAt : DATETIME
+    ' AC-17/18/19/20; NFR-17; ADR-013 (B-05 OPEN)
+  }
+  entity MembershipEvent {
+    * id : TEXT <<PK>>
+    --
+    * membershipId : TEXT <<FK>>
+    * fromState : TEXT
+    * toState : TEXT
+    * occurredAt : DATETIME
+    ' state transition history — WF-02
+  }
+}
+
+package "Training" {
+  entity WorkoutPlan {
+    * id : TEXT <<PK>>
+    --
+    * memberId : TEXT <<FK>>
+    * trainerId : TEXT <<FK>>
+    * version : INTEGER
+    * isTemplate : BOOLEAN
+    ' AC-06/09; NFR-09 versioning; ENH-08 templates
+  }
+  entity Exercise {
+    * id : TEXT <<PK>>
+    --
+    * name : TEXT
+  }
+  entity PlanExercise {
+    * id : TEXT <<PK>>
+    --
+    * planId : TEXT <<FK>>
+    * exerciseId : TEXT <<FK>>
+    * sets : INTEGER
+    * reps : INTEGER
+    ' AC-09 exercises, sets, reps
+  }
+  entity ProgressEntry {
+    * id : TEXT <<PK>>
+    --
+    * memberId : TEXT <<FK>>
+    * trainerId : TEXT <<FK>>
+    * weightKg : REAL
+    * measurements : TEXT <<JSON>>
+    * recordedAt : DATETIME
+    ' AC-07; NFR-07
+  }
+  entity TrainerAssignment {
+    * trainerId : TEXT <<FK>>
+    * memberId : TEXT <<FK>>
+    ' NFR-10 "AUTHORIZED trainers" — resource-level RBAC
+  }
+}
+
+package "Scheduling & Attendance" {
+  entity SessionSlot {
+    * id : TEXT <<PK>>
+    --
+    * kind : TEXT <<trial|personal_training>>
+    * memberId : TEXT <<FK>>
+    prospectId : TEXT <<FK>>
+    trainerId : TEXT <<FK>>
+    * startsAt : DATETIME
+    * status : TEXT
+    ' AC-03, AC-08
+  }
+  entity AttendanceEvent {
+    * id : TEXT <<PK>>
+    --
+    * memberId : TEXT <<FK>>
+    branchId : TEXT <<FK>>
+    * checkedInAt : DATETIME
+    * source : TEXT
+    ' AC-05, AC-14 — ENH-02 (no story writes this)
+  }
+  entity AttendanceDaily {
+    * date : DATE
+    * branchId : TEXT <<FK>>
+    * visits : INTEGER
+    * peakHour : INTEGER
+    ' pre-aggregate for NFR-14 (5 s)
+  }
+}
+
+package "Equipment" {
+  entity Equipment {
+    * id : TEXT <<PK>>
+    --
+    * name : TEXT
+    branchId : TEXT <<FK>>
+    * status : TEXT <<operational|in_maintenance>>
+    ' AC-13 — ENH-04 (no story writes this)
+  }
+  entity MaintenanceSchedule {
+    * id : TEXT <<PK>>
+    --
+    * equipmentId : TEXT <<FK>>
+    * intervalDays : INTEGER
+    * nextDueAt : DATETIME
+    ' AC-13; NFR-13
+  }
+}
+
+package "Money" {
+  entity Payment {
+    * id : TEXT <<PK>>
+    --
+    * memberId : TEXT <<FK>>
+    membershipId : TEXT <<FK>>
+    * amountMinor : INTEGER
+    * method : TEXT <<cash|card|online>>
+    * status : TEXT
+    * paidAt : DATETIME
+    idempotencyKey : TEXT <<UQ>>
+    ' AC-21; NFR-21 encrypted
+  }
+  entity Receipt {
+    * id : TEXT <<PK>>
+    --
+    * paymentId : TEXT <<FK,UQ>>
+    * issuedAt : DATETIME
+    ' AC-04, AC-21
+  }
+  entity Invoice {
+    * id : TEXT <<PK>>
+    --
+    * number : TEXT <<UQ>>
+    * memberId : TEXT <<FK>>
+    * amountMinor : INTEGER
+    * dueAt : DATETIME
+    * status : TEXT
+    idempotencyKey : TEXT <<UQ>>
+    ' AC-22; NFR-22 idempotent
+  }
+  entity RefundRequest {
+    * id : TEXT <<PK>>
+    --
+    * paymentId : TEXT <<FK>>
+    * status : TEXT <<pending|approved|rejected>>
+    approvedById : TEXT <<FK>>
+    ' AC-24 "APPROVED refund request" — ENH-05
+  }
+  entity Refund {
+    * id : TEXT <<PK>>
+    --
+    * refundRequestId : TEXT <<FK,UQ>>
+    * amountMinor : INTEGER
+    * processedAt : DATETIME
+    ' AC-24; NFR-24
+  }
+  entity LedgerEntry {
+    * id : TEXT <<PK>>
+    --
+    * kind : TEXT <<payment|refund|charge>>
+    * amountMinor : INTEGER
+    * occurredAt : DATETIME
+    * sourceType : TEXT
+    * sourceId : TEXT
+    ' APPEND-ONLY — AC-23, NFR-24, ADR-011
+  }
+}
+
+package "Platform" {
+  entity AuditEvent {
+    * id : TEXT <<PK>>
+    --
+    * actorId : TEXT
+    * action : TEXT
+    * entityType : TEXT
+    * entityId : TEXT
+    beforeJson : TEXT
+    afterJson : TEXT
+    * occurredAt : DATETIME
+    ip : TEXT
+    ' APPEND-ONLY — ENH-13, NFR-24
+  }
+  entity NotificationOutbox {
+    * id : TEXT <<PK>>
+    --
+    * channel : TEXT <<email|sms>>
+    * recipient : TEXT
+    * template : TEXT
+    * payloadJson : TEXT
+    * status : TEXT <<pending|sent|failed>>
+    * attempts : INTEGER
+    ' ADR-008 — NFR-01, NFR-19
+  }
+}
+
+Branch ||--o{ Staff
+Branch ||--o{ Member
+Branch ||--o{ Equipment
+Branch ||--o{ AttendanceEvent
+Branch ||--o{ AttendanceDaily
+Role ||--o{ Staff
+Role ||--o{ RolePermission
+Permission ||--o{ RolePermission
+Staff ||--o{ Session
+Member ||--o{ Session
+Member ||--o{ MedicalRestriction
+Member ||--o{ Membership
+Member ||--o{ WorkoutPlan
+Member ||--o{ ProgressEntry
+Member ||--o{ AttendanceEvent
+Member ||--o{ SessionSlot
+Member ||--o{ Payment
+Member ||--o{ Invoice
+Member ||--o{ TrainerAssignment
+Staff ||--o{ TrainerAssignment
+Prospect ||--o{ SessionSlot
+MembershipPlan ||--o{ Membership
+Membership ||--o{ MembershipEvent
+Membership ||--o{ Payment
+WorkoutPlan ||--o{ PlanExercise
+Exercise ||--o{ PlanExercise
+Equipment ||--o{ MaintenanceSchedule
+Payment ||--|| Receipt
+Payment ||--o{ RefundRequest
+RefundRequest ||--|| Refund
+Payment ||--o{ LedgerEntry
+Refund ||--o{ LedgerEntry
+
+legend right
+  |= Marker |= Meaning |
+  | <<PK>> / <<FK>> / <<UQ>> | key constraints |
+  | <<encrypted>> | field encryption at rest (NFR-10, NFR-21) |
+  | ENH-nn | entity exists ONLY to unblock a Lab 1 story |
+  | APPEND-ONLY | never updated or deleted (ADR-011) |
+  |= Open decision |= Effect |
+  | B-03 | branchId placement — ADR-014 assumed |
+  | B-04 | ENH-02..06 write paths — assumed |
+  | B-05 | Membership.state set — ADR-013 assumed |
+endlegend
+
+note bottom
+  INC-04: neither Lab 1 nor Lab 2 defines a data model.
+  Every entity, attribute and type here is an ASSUMPTION derived
+  from acceptance-criteria text. None of it is a sourced requirement.
+end note
+
+@enduml

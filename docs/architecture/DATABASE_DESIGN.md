@@ -1,0 +1,325 @@
+# Ironboard — Database Design
+
+**Phase:** 2 — Architecture · **Date:** 2026-08-16 · **Status:** Design only, **no schema written**
+**Diagram:** `docs/diagrams/er/er-model.png` (`DIA-16`, ENHANCEMENT)
+**Engine:** SQLite (WAL) via Prisma 6 + `better-sqlite3` — ADR-005
+
+---
+
+## ⚠️ 0. The governing caveat
+
+**Neither Lab 1 nor Lab 2 defines a data model** (`INC-04`). No source document names a single
+entity, attribute, type, key, index or relationship.
+
+**Everything in this document is an engineering decision derived from acceptance-criteria
+prose.** Nothing here may be cited as a sourced requirement. The handful of fields that come
+closest to being sourced are listed in §3.1; everything else is assumption.
+
+No field-level rules exist either (`INC-05`) — formats, lengths, uniqueness and required-ness
+are all invented, and `NFR-02` ("validate all member information") gives no guidance on what
+"valid" means.
+
+---
+
+## 1. Conventions
+
+| Convention | Choice | Rationale |
+|---|---|---|
+| Primary keys | `TEXT` CUID2 | Non-sequential; safe to expose in URLs |
+| Money | `INTEGER` minor units (paise) | **Never floats.** `NFR-24` requires exact arithmetic |
+| Timestamps | `DATETIME` UTC | Single timezone; `AMB-04` leaves "working hours" undefined |
+| Enums | `TEXT` + `CHECK` | SQLite has no native enum; Prisma maps to a union type |
+| Soft delete | `disabled` status, not row deletion | `AC-12` "disables a branch"; `NFR-13` |
+| JSON columns | `TEXT` holding JSON | Only where the shape is genuinely open (`accessRules`, `measurements`) |
+| Naming | `PascalCase` models, `camelCase` fields | Prisma convention |
+
+---
+
+## 2. Entity catalogue
+
+25 entities in eight groups. `⚠️` marks an entity that exists **only** to unblock a Lab 1 story
+whose write path no story provides (`B-04`, unresolved).
+
+### 2.1 Identity & Access
+
+| Entity | Purpose | Traces to |
+|---|---|---|
+| `Branch` | Gym locations; `add / update / disable` | `AC-12`, `NFR-12` |
+| `Role` | Six roles incl. Member (`ENH-01`) | `NFR-10`, `NFR-11`, `NFR-21` |
+| `Permission` | Atomic capability | ADR-007 |
+| `RolePermission` | Join | ADR-007 |
+| `Staff` ⚠️ | Staff account, `pending → active` | `AC-11`, `ENH-06` |
+| `Session` | Revocable server-side session | ADR-006, `AC-11`, `AC-17` |
+
+### 2.2 Members & Health
+
+| Entity | Purpose | Traces to |
+|---|---|---|
+| `Member` | Member record + Member ID | `AC-01`, `AC-02`, `NFR-02` |
+| `MedicalRestriction` ⚠️ | Health conditions, **encrypted** | `AC-10`, `NFR-10`, `ENH-03` |
+| `Prospect` ⚠️ | Trial-session lead | `AC-03`, `ENH-07` |
+
+### 2.3 Membership lifecycle
+
+| Entity | Purpose | Traces to |
+|---|---|---|
+| `MembershipPlan` | Price, duration, access rules; draft → published | `AC-16`, `NFR-16` |
+| `Membership` | The state machine | `AC-17`–`AC-20`, `NFR-17` |
+| `MembershipEvent` | Transition history | `WF-02`, feeds `DIA-07` |
+
+### 2.4 Training
+
+| Entity | Purpose | Traces to |
+|---|---|---|
+| `WorkoutPlan` | Versioned; `isTemplate` for `ENH-08` | `AC-06`, `AC-09`, `NFR-09` |
+| `Exercise` | Catalogue | `AC-09` |
+| `PlanExercise` | Sets and reps | `AC-09` |
+| `ProgressEntry` | Weight, measurements | `AC-07`, `NFR-07` |
+| `TrainerAssignment` | **Which trainer may see which member** | `NFR-10` |
+
+### 2.5 Scheduling & attendance
+
+| Entity | Purpose | Traces to |
+|---|---|---|
+| `SessionSlot` | Trial and PT bookings | `AC-03`, `AC-08` |
+| `AttendanceEvent` ⚠️ | Entrance check-in | `AC-05`, `AC-14`, `ENH-02` |
+| `AttendanceDaily` | Pre-aggregate for the 5 s budget | `NFR-14` |
+
+### 2.6 Equipment
+
+| Entity | Purpose | Traces to |
+|---|---|---|
+| `Equipment` ⚠️ | Machine register, `In Maintenance` state | `AC-13`, `ENH-04` |
+| `MaintenanceSchedule` | Recurring interval | `AC-13`, `NFR-13` |
+
+### 2.7 Money
+
+| Entity | Purpose | Traces to |
+|---|---|---|
+| `Payment` | cash / card / online | `AC-21`, `NFR-21` |
+| `Receipt` | 1:1 with payment | `AC-04`, `AC-21` |
+| `Invoice` | Numbered, idempotent | `AC-22`, `AC-25`, `NFR-22` |
+| `RefundRequest` ⚠️ | Requires approval | `AC-24`, `ENH-05` |
+| `Refund` | Executed refund | `AC-24`, `NFR-24` |
+| `LedgerEntry` | **Append-only** financial record | `AC-23`, `NFR-24`, ADR-011 |
+
+### 2.8 Platform
+
+| Entity | Purpose | Traces to |
+|---|---|---|
+| `AuditEvent` | **Append-only** audit trail | `NFR-24`, `ENH-13` |
+| `NotificationOutbox` | Async dispatch | `NFR-01`, `NFR-19`, ADR-008 |
+
+---
+
+## 3. Field derivation
+
+### 3.1 Fields closest to being sourced
+
+| Field | Source text (verbatim) |
+|---|---|
+| `Member.name / email / phone` | `AC-01` "valid member info (Name, Email, Phone)" |
+| `Member.memberCode` | `AC-01` "generate a Member ID" |
+| `MembershipPlan.priceMinor / durationDays / accessRules` | `AC-16` "price, duration, and access rules are entered" |
+| `MembershipPlan.published` | `AC-16` "saves and **publishes** the plan" |
+| `Membership.state` | `AC-17` "Cancelled" · `AC-20` "Active"/"Expired" · `AC-19` expiring |
+| `PlanExercise.sets / reps` | `AC-09` "exercises, sets, or reps" |
+| `ProgressEntry.weightKg / measurements` | `AC-07` "logs weight or measurements" |
+| `Payment.method` | `AC-21` "cash, card, or online" |
+| `Equipment.status` | `AC-13` mark the machine "In Maintenance" |
+| `MaintenanceSchedule.intervalDays` | `AC-13` "recurring service schedule (e.g., every 3 months)" |
+| `Staff.status` | `AC-11` register → review → "Approve" → activate |
+
+**Everything else is invented**: all ids, timestamps, hashes, JSON payloads, idempotency keys,
+statuses not listed above, and every type and length.
+
+### 3.2 `accessRules` — load-bearing and undefined
+
+`AC-16` requires "access rules" on a plan. `AC-17` says cancelling must **"stop gym access"**;
+`AC-18` says renewal must **"restore gym access"**. So `accessRules` is the mechanism behind two
+other criteria — yet **no source says what an access rule is**.
+
+Modelled as an open JSON column precisely because inventing a rigid schema would be inventing a
+requirement. Logged as an assumption.
+
+---
+
+## 4. Membership state machine
+
+**[PROVISIONAL — `B-05` unresolved.]** ADR-013.
+
+```
+            ┌──────────────────────────────────────────┐
+            │                                          │
+   ┌────────▼────────┐  expiresAt - 7d   ┌─────────────┴───┐
+   │     Active      │──────────────────►│    Expiring     │
+   │     (AC-20)     │                   │    (AC-19)      │
+   └────────┬────────┘                   └─────────┬───────┘
+            │                                      │ expiresAt reached
+            │ cancellation confirmed               ▼
+            │ (AC-17)                     ┌─────────────────┐
+            │                             │     Expired     │
+            │                             │     (AC-20)     │
+            │                             └────────┬────────┘
+            │                                      │ renewal payment
+            │                                      │ completed (AC-18)
+            │                                      └──────────► Active
+            ▼
+   ┌─────────────────┐
+   │    Cancelled    │  terminal — ASSUMED, no source states reversibility
+   │     (AC-17)     │
+   └─────────────────┘
+```
+
+⚠️ **Three problems the source leaves open:**
+1. `AC-20` filters on **only two** states (Active, Expired). The UI must expose all four or
+   contradict the criterion.
+2. Whether `Cancelled` is reversible is **stated nowhere**. Assumed terminal.
+3. `NFR-17` "only **valid** inactive memberships should be cancelled" — "valid" is undefined
+   (`AMB-07`). Implemented as: only `Active`, `Expiring` and `Expired` may transition to
+   `Cancelled`.
+
+Every transition writes a `MembershipEvent` row. This table is the direct input to the required
+state chart (`DIA-07`).
+
+---
+
+## 5. Branch scoping
+
+**[PROVISIONAL — `B-03` unresolved. The most expensive decision to get wrong.]** ADR-014.
+
+| Entity | `branchId`? | Rationale |
+|---|---|---|
+| `Staff` | ✅ | Staff work at a branch |
+| `Member` | ✅ | Members register at a branch |
+| `Equipment` | ✅ | Physically located |
+| `AttendanceEvent`, `AttendanceDaily` | ✅ | Check-in happens somewhere |
+| `MembershipPlan` | ❌ global | Plans assumed org-wide |
+| `Payment`, `Invoice`, `LedgerEntry` | ❌ | Reachable via `Member` |
+
+Scoping is enforced in **queries and RBAC**, not by row-level security. `NFR-12` becomes
+testable as *10 branches × 1 000 members, no query > 5 s*.
+
+⚠️ `AC-12` permits **disabling** a branch, and what happens to members attached to it is
+**undefined** (`INC-09`). Assumed: the branch is marked disabled, rows are retained, and new
+assignment is blocked.
+
+---
+
+## 6. Indexes
+
+Added deliberately to serve a specific NFR, not speculatively.
+
+| Index | Serves |
+|---|---|
+| `Member(memberCode)` UNIQUE | `AC-01`, `AC-02` lookup |
+| `Member(email)` UNIQUE | `NFR-02` |
+| `Member(branchId, name)` | Directory filtering, `AC-20` |
+| `Membership(memberId, state)` | `AC-20` Active/Expired filter |
+| `Membership(state, expiresAt)` | `AC-19` scheduler sweep |
+| `AttendanceEvent(memberId, checkedInAt)` | `AC-05` |
+| `AttendanceDaily(branchId, date)` UNIQUE | **`NFR-14` 5 s** |
+| `LedgerEntry(occurredAt, kind)` | **`NFR-23` 5 s** |
+| `Invoice(status, dueAt)` | `AC-25` overdue |
+| `SessionSlot(trainerId, startsAt)` | `AC-08` availability |
+| `SessionSlot(startsAt, status)` | `AC-03` open slots |
+| `Session(tokenHash)` UNIQUE | Every authenticated request |
+| `NotificationOutbox(status, attempts)` | Worker poll |
+| `TrainerAssignment(trainerId, memberId)` UNIQUE | **`NFR-10`** |
+| `Payment(idempotencyKey)` UNIQUE | `NFR-22` |
+| `Invoice(idempotencyKey)` UNIQUE | `NFR-22` |
+
+---
+
+## 7. Constraints and integrity
+
+**[REQ]** `NFR-02`, `NFR-17`, `NFR-24`.
+
+| Constraint | Enforces |
+|---|---|
+| `Membership.state` CHECK ∈ 4 values | `NFR-17`, ADR-013 |
+| `Payment.method` CHECK ∈ {cash, card, online} | `AC-21` |
+| `Payment.amountMinor > 0` | `NFR-24` |
+| `Refund.amountMinor <= Payment.amountMinor` | `NFR-24` — no over-refund |
+| `Receipt.paymentId` UNIQUE | `AC-04` one receipt per payment |
+| `Refund.refundRequestId` UNIQUE | `AC-24` one refund per approved request |
+| `RefundRequest.status = 'approved'` before `Refund` | `AC-24` "Given an **approved** refund request" |
+| FK `ON DELETE RESTRICT` throughout | `NFR-13`, `NFR-07` |
+| `LedgerEntry`, `AuditEvent` — no UPDATE/DELETE | ADR-011 |
+
+**Append-only is enforced at the repository layer**, which exposes only `create` and read
+methods for those two tables. SQLite triggers are a possible belt-and-braces addition.
+
+---
+
+## 8. Transactions
+
+Services own transaction boundaries (ADR-002). Three operations **must** be atomic:
+
+| Operation | Must include | Driver |
+|---|---|---|
+| Register member (`AC-01`) | `Member` + `AuditEvent` + outbox row | `NFR-01`, `NFR-24` |
+| Collect payment (`AC-21`) | `Payment` + `Receipt` + `LedgerEntry` + `AuditEvent` | `NFR-24` |
+| Process refund (`AC-24`) | `Refund` + `LedgerEntry` + `AuditEvent` + request status | `NFR-24` |
+| Renew membership (`AC-18`) | `Payment` + `Membership.expiresAt` + `MembershipEvent` | `NFR-18` |
+
+SQLite is single-writer; transactions must stay short. Report queries are read-only and run
+outside transactions.
+
+---
+
+## 9. Migrations
+
+`prisma migrate` — timestamped SQL, committed, applied via `prisma migrate deploy` on boot.
+Never hand-edited after being applied; corrections are new migrations.
+
+**[ENG]** — no source requires migrations, but they give `NFR-07`/`NFR-13` (durability) a
+tested path and make the academic demonstration reproducible.
+
+---
+
+## 10. Backup and durability
+
+**[REQ]** `NFR-07` "without data loss", `NFR-13` "should **never** be lost".
+
+⚠️ Both are **absolutes and unfalsifiable as written** (ADR-012). Realistic proxies:
+
+| Control | Proxy for |
+|---|---|
+| WAL mode + `synchronous = FULL` | `NFR-07` — committed transactions survive crash |
+| Scheduled file backup + `PRAGMA integrity_check` | `NFR-13` |
+| **Tested restore drill** | `NFR-13` — an untested backup is not a backup |
+| Soft delete + append-only tables | `NFR-13` |
+
+Reports must state that the absolute claim cannot be proven, and report the proxy instead.
+
+---
+
+## 11. Seed data (`ENH-16`)
+
+The five timing NFRs cannot be measured against an empty database, and **no source gives any
+volume figure** (`INC-07`). Seed provides: 3 branches · 6 roles with permissions · 1 staff
+account per role · 1 000 members · 5 plans · 90 days of attendance · payments, invoices and
+ledger entries.
+
+Volumes are an assumption, recorded as such.
+
+---
+
+## 12. Open decisions
+
+| ID | Question | Assumed | Cost if wrong |
+|---|---|---|---|
+| `B-03` | Branch scoping | §5 | **Touches nearly every table** |
+| `B-04` | Five missing write paths | ⚠️ entities in §2 | Six mandatory stories non-functional |
+| `B-05` | Membership state set | §4 | State chart + `NFR-17` wrong |
+| — | `accessRules` shape | Open JSON | Two other criteria depend on it |
+| — | Data volumes | §11 | Performance NFRs unmeasurable |
+
+---
+
+## 13. Related
+
+`docs/diagrams/er/er-model.png` + `NOTES.md` · `SYSTEM_ARCHITECTURE.md` ·
+`SECURITY_ARCHITECTURE.md` · `ARCHITECTURAL_DECISIONS.md` (ADR-005, 011, 013, 014) ·
+`docs/requirements/LAB1_TRACEABILITY_MATRIX.md`

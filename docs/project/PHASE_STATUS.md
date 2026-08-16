@@ -80,7 +80,32 @@
 
 ---
 
-## Phase 2 — Requirements & design ⛔
+## Phase 2 — Architecture ✅ (partial: architecture only)
+
+> **Phase numbering note.** The master plan's Phase 2 is "Requirements & design". The
+> instruction that produced this work called it "Phase 2 — Architecture" and covered the
+> architecture subset only. The requirements-phase documents and the twelve mandatory
+> diagrams below remain outstanding.
+
+| Deliverable | Status | Artefact |
+|---|---|---|
+| System architecture | ✅ | `docs/architecture/SYSTEM_ARCHITECTURE.md` |
+| Database design | ✅ | `docs/architecture/DATABASE_DESIGN.md` |
+| API architecture (57 endpoints) | ✅ | `docs/architecture/API_ARCHITECTURE.md` |
+| Security architecture | ✅ | `docs/architecture/SECURITY_ARCHITECTURE.md` |
+| Architecture diagram | ✅ | `docs/diagrams/architecture/architecture.png` (`DIA-15`, ENH) |
+| ER / data model diagram | ✅ | `docs/diagrams/er/er-model.png` (`DIA-16`, ENH) |
+
+**Both diagrams are enhancements, not academic coverage.** Mandatory diagram count remains 0/12.
+
+⚠️ **Architecture was designed on unconfirmed assumptions.** `B-03`, `B-04` and `B-05` were not
+answered before this phase. ADR-013 (states), ADR-014 (branch scoping) and `ENH-02`…`ENH-06`
+(write paths) are baked into the database and API designs. `B-03` in particular touches nearly
+every table.
+
+---
+
+## Phase 2b — Requirements & design diagrams ⛔
 
 **Blocked.** Three decisions must be made before the diagrams can be drawn correctly.
 
