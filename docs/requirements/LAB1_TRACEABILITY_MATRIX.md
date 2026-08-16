@@ -8,8 +8,43 @@
 **Coverage:** 25 user stories · 25 acceptance criteria · 25 functional requirements ·
 5 departments · 5 primary actors. Every row is traced to at least three independent sources.
 
-**Status:** ⬜ Not implemented — no application code exists. Implementation and test columns
-are placeholders to be filled as work proceeds.
+**Status:** 🟡 **Phase 3 — database layer only.**
+
+⚠️ **No acceptance criterion is VERIFIED.** A row becomes VERIFIED only when its feature *and*
+its test are complete. Phase 3 delivered the **database support** they will rest on — schema,
+constraints, indexes and deterministic seed data — nothing more. Service, API, UI and
+acceptance tests do not exist.
+
+| Layer | Phase 3 state |
+|---|---|
+| Database support | ✅ 28 entities, 36 CHECK constraints, 2 partial unique indexes, 7 triggers, 63 passing DB tests |
+| Service / API / UI | 🔴 Not started |
+| Acceptance tests (`AC-01`…`AC-25`) | 🔴 **0 / 25 — none written, none passing** |
+
+Database support by criterion — *support, not verification*:
+
+| AC | Database support delivered in Phase 3 |
+|---|---|
+| `AC-01` | `Member` + unique `memberCode`/`email`; `NotificationOutbox` for the welcome email |
+| `AC-02` | `Member` update path; `(fullName)` index for lookup |
+| `AC-03` | `Prospect`, `SessionSlot(kind='trial')` + XOR member/prospect CHECK |
+| `AC-04` | `Receipt` 1:1 with `Payment` |
+| `AC-05` / `AC-14` | `AttendanceEvent` (`ENH-02`) + `AttendanceDaily` pre-aggregate |
+| `AC-06` / `AC-09` | `WorkoutPlan` (versioned), `PlanExercise(sets,reps)` |
+| `AC-07` | `ProgressEntry(weightKg, measurements)` |
+| `AC-08` | `SessionSlot(kind='personal_training')` + trainer index |
+| `AC-10` | `MedicalRestriction` (`ENH-03`) + `TrainerAssignment` (`ENH-20`) for `NFR-10` |
+| `AC-11` | `Staff.status` pending→active + activation-token columns (no password transmitted) |
+| `AC-12` | `Branch` with `disabled` status; `SET NULL` on `homeBranchId` |
+| `AC-13` | `Equipment` (`ENH-04`) + `MaintenanceSchedule` |
+| `AC-15` | Cross-module reads; branch is not a partition (`B-03`) |
+| `AC-16` | `MembershipPlan(priceMinor, durationDays, accessRules, published)` |
+| `AC-17` / `AC-18` / `AC-20` | `Membership` 3-state machine + transition trigger + `MembershipEvent` |
+| `AC-19` | Derived "expiring soon" query; `(state, expiresAt)` index; seed guarantees matches |
+| `AC-21` / `AC-22` | `Payment`, `Receipt`, `Invoice`, idempotency keys |
+| `AC-23` | Append-only `LedgerEntry` + `(occurredAt, kind)` index |
+| `AC-24` | `Refund` with approval captured as data (`ENH-05` withdrawn); over-refund trigger |
+| `AC-25` | `Invoice(status, dueAt)` index |
 
 ---
 

@@ -1,6 +1,6 @@
 # Ironboard — Phase Status
 
-**Updated:** 2026-08-16 · **Commit:** see git log · **Current phase:** Pre-Phase-3 decisions complete · **Phase 3 NOT started**
+**Updated:** 2026-08-16 · **Commit:** see git log · **Current phase:** **Phase 3 (database) COMPLETE** · Phase 4 NOT started
 
 > Live status. Update on every phase transition and whenever a blocking decision is resolved.
 > **No status may be marked ✅ without a checkable artefact path.**
@@ -26,7 +26,7 @@
 | 0 | Analysis & skills | ✅ | — |
 | **1** | **Master plan** | ✅ | — |
 | 2 | Architecture ✅ / Requirements & design 🔴 | 🟡 | — (`B-03`,`B-04`,`B-05` ✅ resolved) |
-| 3 | Foundation | 🔴 | Phase 2b diagrams (`B-03` ✅ cleared) |
+| 3 | Foundation — **database** | ✅ | — |
 | 4 | Department modules | 🔴 | Phase 3 |
 | 5 | Frontend | 🔴 | Phase 3 primitives |
 | 6 | Cross-cutting | 🔴 | Phase 4 |
@@ -34,7 +34,8 @@
 | 8 | Academic deliverables | 🔴 | Phase 7 |
 | 9 | Audit & submission | 🔴 | All |
 
-**No application code exists.** Phases 3–9 have produced nothing yet, by design.
+**Database layer exists** (`server/`). No service, API or UI code exists. Phases 4–9 have
+produced nothing yet, by design.
 
 ---
 
@@ -149,7 +150,8 @@ artefact `DIA-05` is unblocked.
 
 | Phase | Deliverables | Notes |
 |---|---|---|
-| 3 Foundation | Scaffold, Prisma schema, migrations, auth, RBAC, API skeleton, design-system primitives | ✅ unblocked (`B-03`) |
+| 3 Foundation — DB ✅ | Workspace scaffold, Prisma schema (28 entities), migration, 36 CHECKs, 7 triggers, deterministic seed, reset, 63 tests | ✅ **COMPLETE** — evidence `docs/testing/evidence/phase3-db-20260816T140858Z.log` |
+| 3b Foundation — rest | Auth, RBAC, API skeleton, design-system primitives | 🔴 Not started |
 | 4 Modules | D01 → D04 → D02 → D05 → D03 (dependency order, not numeric) | ✅ six stories unblocked (`B-04`) |
 | 5 Frontend | Module screens, mobile nav (`ENH-11`) | — |
 | 6 Cross-cutting | Outbox, reporting, audit log, scheduler | — |
@@ -171,6 +173,8 @@ artefact `DIA-05` is unblocked.
 | NFRs with a verification | 0 | 25 |
 | Departments fully delivered | 0 | 5 |
 | Mandatory diagrams delivered | 0 | 11 |
+| **Database entities implemented** | **28** | **28** |
+| **Database tests passing** | **63** | **63** |
 | Use case documentation (`DIA-05`, written) | 0 | 1 |
 
 **Enhancements — reported separately, never summed with the above.**

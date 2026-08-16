@@ -1,0 +1,37 @@
+=== Ironboard Phase 3 — database evidence ===
+timestamp: 2026-08-16T14:08:58Z
+commit:    4eaf6c7
+node:      v22.22.2
+
+### 1. CLEAN MIGRATION FROM SCRATCH + DETERMINISTIC SEED (npm run db:reset)
+
+> @ironboard/server@0.1.0 db:reset
+> tsx src/db/reset.ts
+
+✔ database reset and seeded: /home/user/ironboard/server/prisma/ironboard.db
+db:reset exit: 0
+
+### 2. SECOND RESET — proves reproducibility
+✔ database reset and seeded: /home/user/ironboard/server/prisma/ironboard.db
+
+### 3. TYPECHECK (tsc --noEmit)
+> @ironboard/server@0.1.0 typecheck
+> tsc --noEmit
+
+typecheck exit: 0
+
+### 4. FULL TEST SUITE (vitest run)
+ RUN  v3.2.7 /home/user/ironboard/server
+
+ ✓ tests/seed.test.ts (11 tests) 1751ms
+   ✓ T-U-063 seeding is deterministic and reproducible > re-running the seed produces identical content  1642ms
+ ✓ tests/constraints.test.ts (18 tests) 152ms
+ ✓ tests/membership.test.ts (10 tests) 110ms
+ ✓ tests/schema.test.ts (10 tests) 92ms
+ ✓ tests/relationships.test.ts (14 tests) 54ms
+
+ Test Files  5 passed (5)
+      Tests  63 passed (63)
+   Start at  14:09:08
+   Duration  6.60s (transform 111ms, setup 0ms, collect 296ms, tests 2.16s, environment 1ms, prepare 289ms)
+

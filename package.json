@@ -1,0 +1,8 @@
+{
+  "name": "ironboard",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Ironboard gym management system — Software Engineering course project",
+  "workspaces": ["server"],
+  "engines": { "node": ">=22" }
+}

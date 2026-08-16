@@ -7,7 +7,24 @@
 
 **Coverage:** 25 non-functional requirements, each bound 1:1 to a functional requirement.
 
-**Status:** ⬜ Not implemented — no application code exists.
+**Status:** 🟡 **Phase 3 — database layer only.**
+
+⚠️ **0 of 25 NFRs are VERIFIED.** Phase 3 delivered database *support*; verification requires
+the service, API and measurement layers. Per the testing skill, an unexecuted test is
+`NOT RUN`, never `PASS`.
+
+| Metric | Phase 3 |
+|---|---|
+| NFRs with database support | 12 of 25 |
+| NFRs with an implementation (full stack) | **0** |
+| NFRs **verified** | **0 / 25** |
+
+Database support delivered: `NFR-01` outbox (email off the critical path) · `NFR-02` CHECK
+constraints + uniqueness · `NFR-07`/`NFR-13` WAL + `synchronous = FULL` + no hard-delete path ·
+`NFR-09` plan versioning · `NFR-10` `TrainerAssignment` + index · `NFR-12` branch scoping
+without isolation · `NFR-14` `AttendanceDaily` pre-aggregate · `NFR-17` transition trigger ·
+`NFR-19` outbox with attempt counter · `NFR-22` idempotency keys · `NFR-23` ledger index ·
+`NFR-24` integer minor units, append-only ledger, over-refund trigger.
 
 ---
 

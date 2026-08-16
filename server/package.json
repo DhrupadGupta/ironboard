@@ -1,0 +1,31 @@
+{
+  "name": "@ironboard/server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:reset": "tsx src/db/reset.ts",
+    "db:seed": "tsx src/db/seed.ts",
+    "db:studio": "prisma studio",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:reset:noseed": "tsx src/db/reset.ts --no-seed"
+  },
+  "prisma": {
+    "seed": "tsx src/db/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.3.0",
+    "@paralleldrive/cuid2": "^2.2.2"
+  },
+  "devDependencies": {
+    "prisma": "^6.3.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5",
+    "@types/node": "^22.10.7"
+  }
+}

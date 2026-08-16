@@ -1,0 +1,610 @@
+// ============================================================================
+// Ironboard — Prisma schema (Phase 3)
+//
+// Authority : docs/project/PRE_PHASE_3_DECISION_REGISTER.md
+//             docs/architecture/DATABASE_DESIGN.md
+//             docs/decisions/B-03_DECISION.md, B-04_API_DECISIONS.md,
+//             B-05_MEMBERSHIP_STATE_MACHINE.md
+//
+// ⚠️ INC-04: NEITHER Lab 1 NOR Lab 2 DEFINES A DATA MODEL.
+//    Every entity, field, type and index below is an ENGINEERING DECISION or
+//    an ASSUMPTION derived from acceptance-criteria prose. Nothing here may be
+//    cited as a SOURCE REQUIREMENT. Fields closest to being sourced are marked
+//    "[src]" with the acceptance criterion they derive from.
+// ⚠️ INC-05: no source defines any field rule — formats, lengths, uniqueness
+//    and required-ness are all invented.
+//
+// SQLite has no native ENUM. Status/kind columns are TEXT and are constrained
+// by CHECK constraints added in migration SQL (Prisma cannot express CHECK).
+// Money is INTEGER minor units — never a float (NFR-24).
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// IDENTITY & ACCESS
+// ---------------------------------------------------------------------------
+
+/// Gym location. AC-12 "adds, updates, or disables a branch".
+/// B-03: branch is a SCOPING ATTRIBUTE, not a tenant boundary.
+model Branch {
+  id        String   @id
+  code      String   @unique
+  name      String
+  /// active | disabled — AC-12 permits disabling
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  staff            Staff[]
+  members          Member[]
+  equipment        Equipment[]
+  attendanceEvents AttendanceEvent[]
+  attendanceDaily  AttendanceDaily[]
+
+  @@index([status])
+}
+
+/// One of six roles. Member is ENH-01 (owns no Lab 1 story).
+model Role {
+  id    String @id
+  key   String @unique
+  name  String
+
+  permissions RolePermission[]
+  staff       Staff[]
+}
+
+/// Atomic capability. ADR-007 deny-by-default.
+model Permission {
+  id          String @id
+  key         String @unique
+  description String
+
+  roles RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+}
+
+/// Staff account. AC-11 register -> review -> "Approve" -> activate. [src: AC-11 status]
+/// B-03: homeBranchId is NULLABLE and descriptive — null means org-wide.
+/// AC-11 deviation: no password is ever transmitted. Approval issues a
+/// single-use activation token; the staff member sets their own password.
+model Staff {
+  id           String  @id
+  email        String  @unique
+  /// Null until the activation link is used — passwords are never emailed.
+  passwordHash String?
+  fullName     String
+  roleId       String
+  /// B-03 — NULLABLE. Null = not tied to one location (e.g. Administrator).
+  homeBranchId String?
+  /// pending | active | disabled
+  status       String  @default("pending")
+
+  // AC-11 activation (ENGINEERING SECURITY IMPROVEMENT — see docs/decisions/DEVIATIONS.md)
+  activationTokenHash String?   @unique
+  activationExpiresAt DateTime?
+  approvedByStaffId   String?
+  approvedAt          DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  role       Role    @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  homeBranch Branch? @relation(fields: [homeBranchId], references: [id], onDelete: SetNull)
+
+  approvedBy   Staff?  @relation("StaffApproval", fields: [approvedByStaffId], references: [id], onDelete: SetNull)
+  approvedStaff Staff[] @relation("StaffApproval")
+
+  trainerAssignments   TrainerAssignment[] @relation("TrainerOfAssignment")
+  assignmentsGranted   TrainerAssignment[] @relation("GrantedByStaff")
+  medicalRecorded      MedicalRestriction[]
+  workoutPlans         WorkoutPlan[]
+  progressEntries      ProgressEntry[]
+  sessionSlots         SessionSlot[]
+  refundsApproved      Refund[]
+
+  @@index([status])
+  @@index([roleId])
+  @@index([homeBranchId])
+}
+
+/// Revocable server-side session. ADR-006 — chosen over JWT because AC-11 and
+/// AC-17 both require immediate access change.
+model Session {
+  id          String    @id
+  tokenHash   String    @unique
+  /// staff | member
+  subjectType String
+  subjectId   String
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([subjectType, subjectId])
+  @@index([expiresAt])
+}
+
+// ---------------------------------------------------------------------------
+// MEMBERS & HEALTH
+// ---------------------------------------------------------------------------
+
+/// AC-01 "create the profile, generate a Member ID".
+/// [src: AC-01 name/email/phone, memberCode]
+/// B-03: homeBranchId NULLABLE and NON-RESTRICTIVE — no source bars a member
+/// from another branch.
+model Member {
+  id           String  @id
+  memberCode   String  @unique
+  fullName     String
+  email        String  @unique
+  phone        String
+  /// B-03 — NULLABLE, descriptive only.
+  homeBranchId String?
+  /// ENH-01 member portal. Null until the member sets a password.
+  passwordHash String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  homeBranch Branch? @relation(fields: [homeBranchId], references: [id], onDelete: SetNull)
+
+  medicalRestrictions MedicalRestriction[]
+  memberships         Membership[]
+  workoutPlans        WorkoutPlan[]
+  progressEntries     ProgressEntry[]
+  trainerAssignments  TrainerAssignment[]
+  attendanceEvents    AttendanceEvent[]
+  sessionSlots        SessionSlot[]
+  payments            Payment[]
+  invoices            Invoice[]
+  ledgerEntries       LedgerEntry[]
+
+  @@index([homeBranchId])
+  @@index([fullName])
+}
+
+/// AC-10 "a member has a health condition logged". ENH-03.
+/// NFR-10 — access restricted to ASSIGNED trainers (see TrainerAssignment).
+model MedicalRestriction {
+  id                String   @id
+  memberId          String
+  /// NFR-10/NFR-21 pattern: stored encrypted at the application layer.
+  conditionCipher   String
+  severity          String
+  recordedByStaffId String?
+  createdAt         DateTime @default(now())
+
+  member          Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  recordedByStaff Staff? @relation(fields: [recordedByStaffId], references: [id], onDelete: SetNull)
+
+  @@index([memberId])
+}
+
+/// AC-03 "a potential customer's details". ENH-07 — no story creates one.
+model Prospect {
+  id        String   @id
+  fullName  String
+  phone     String
+  email     String?
+  createdAt DateTime @default(now())
+
+  sessionSlots SessionSlot[]
+}
+
+// ---------------------------------------------------------------------------
+// MEMBERSHIP LIFECYCLE
+// ---------------------------------------------------------------------------
+
+/// AC-16 "price, duration, and access rules are entered ... saves and publishes".
+/// [src: priceMinor, durationDays, accessRules, published]
+/// B-03: plans are GLOBAL — deliberately no branchId.
+model MembershipPlan {
+  id           String   @id
+  name         String   @unique
+  /// Minor units (paise). NEVER a float — NFR-24.
+  priceMinor   Int
+  durationDays Int
+  /// AC-16 "access rules" — shape undefined by any source; open JSON.
+  accessRules  String   @default("{}")
+  published    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships Membership[]
+
+  @@index([published])
+}
+
+/// B-05 RESOLVED: exactly THREE persisted states — ACTIVE | EXPIRED | CANCELLED.
+/// There is NO "EXPIRING" state. AC-19 "expiring soon (e.g., in 7 days)" is a
+/// DERIVED predicate: state = ACTIVE AND (expiresAt - now) <= window.
+/// Created by ENH-19 (Membership Manager); payment is NOT required for creation.
+model Membership {
+  id          String    @id
+  memberId    String
+  planId      String
+  /// ACTIVE | EXPIRED | CANCELLED  — CHECK constraint in migration SQL
+  state       String    @default("ACTIVE")
+  startsAt    DateTime
+  expiresAt   DateTime
+  cancelledAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  member Member         @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  plan   MembershipPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  events   MembershipEvent[]
+  payments Payment[]
+  invoices Invoice[]
+
+  @@index([memberId, state])
+  @@index([state, expiresAt])
+}
+
+/// Transition history — WF-02. Feeds the state chart (DIA-07).
+/// APPEND-ONLY: never updated, never deleted.
+model MembershipEvent {
+  id           String   @id
+  membershipId String
+  /// Null for the creation transition T1.
+  fromState    String?
+  toState      String
+  reason       String?
+  occurredAt   DateTime @default(now())
+
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@index([membershipId, occurredAt])
+}
+
+// ---------------------------------------------------------------------------
+// TRAINING
+// ---------------------------------------------------------------------------
+
+/// AC-06 "link the plan to the member's profile"; AC-09 versioned so historical
+/// data survives an edit (NFR-09 "without affecting existing data").
+model WorkoutPlan {
+  id         String   @id
+  /// Null when isTemplate = true (ENH-08 template library).
+  memberId   String?
+  trainerId  String
+  name       String
+  version    Int      @default(1)
+  isTemplate Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  member  Member? @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  trainer Staff   @relation(fields: [trainerId], references: [id], onDelete: Restrict)
+
+  planExercises PlanExercise[]
+
+  @@index([memberId, version])
+  @@index([trainerId])
+  @@index([isTemplate])
+}
+
+model Exercise {
+  id   String @id
+  name String @unique
+
+  planExercises PlanExercise[]
+}
+
+/// AC-09 "exercises, sets, or reps". [src: sets, reps]
+model PlanExercise {
+  id            String @id
+  workoutPlanId String
+  exerciseId    String
+  sets          Int
+  reps          Int
+  position      Int    @default(0)
+
+  workoutPlan WorkoutPlan @relation(fields: [workoutPlanId], references: [id], onDelete: Cascade)
+  exercise    Exercise    @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+
+  @@unique([workoutPlanId, exerciseId])
+  @@index([workoutPlanId])
+}
+
+/// AC-07 "logs weight or measurements". [src: weightKg, measurements]
+model ProgressEntry {
+  id           String   @id
+  memberId     String
+  trainerId    String
+  weightKg     Float?
+  measurements String   @default("{}")
+  recordedAt   DateTime @default(now())
+
+  member  Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  trainer Staff  @relation(fields: [trainerId], references: [id], onDelete: Restrict)
+
+  @@index([memberId, recordedAt])
+}
+
+/// ENH-20 — materialises NFR-10's per-member authorisation.
+/// Written as a SIDE EFFECT of AC-06 (plan assignment) and AC-08 (PT booking).
+/// NOT a trainer-facing feature. An admin fallback exists for the bootstrap case.
+/// AC-10 requires the medical alert BEFORE workouts are set, which is why this
+/// cannot be derived from WorkoutPlan alone — an AC-08 booking precedes it.
+model TrainerAssignment {
+  id        String    @id
+  trainerId String
+  memberId  String
+  /// workout_plan | pt_session | admin — provenance
+  source    String
+  grantedByStaffId String?
+  createdAt DateTime  @default(now())
+  /// Soft revoke — never hard-deleted.
+  revokedAt DateTime?
+
+  trainer   Staff  @relation("TrainerOfAssignment", fields: [trainerId], references: [id], onDelete: Cascade)
+  member    Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  grantedBy Staff? @relation("GrantedByStaff", fields: [grantedByStaffId], references: [id], onDelete: SetNull)
+
+  @@index([trainerId, memberId])
+  @@index([memberId])
+}
+
+// ---------------------------------------------------------------------------
+// SCHEDULING & ATTENDANCE
+// ---------------------------------------------------------------------------
+
+/// AC-03 trial sessions; AC-08 personal training ("add it to both calendars").
+model SessionSlot {
+  id         String    @id
+  /// trial | personal_training
+  kind       String
+  memberId   String?
+  prospectId String?
+  trainerId  String?
+  startsAt   DateTime
+  endsAt     DateTime
+  /// booked | completed | cancelled
+  status     String    @default("booked")
+  createdAt  DateTime  @default(now())
+
+  member   Member?   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  prospect Prospect? @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  trainer  Staff?    @relation(fields: [trainerId], references: [id], onDelete: SetNull)
+
+  @@index([trainerId, startsAt])
+  @@index([startsAt, status])
+  @@index([memberId])
+}
+
+/// AC-14 "check-in data is recorded at the entrance". ENH-02 — the highest-value
+/// missing write path; it unblocks US-05 AND US-14.
+/// B-03: branchId is NOT NULL — a check-in physically happens somewhere.
+model AttendanceEvent {
+  id          String   @id
+  memberId    String
+  /// B-03 — NOT NULL.
+  branchId    String
+  checkedInAt DateTime
+  /// reception | turnstile | seed
+  source      String   @default("reception")
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  @@index([memberId, checkedInAt])
+  @@index([branchId, checkedInAt])
+}
+
+/// Pre-aggregate so NFR-14's 5 s budget is met without scanning raw events.
+/// B-03: branchId NOT NULL.
+model AttendanceDaily {
+  id       String   @id
+  /// Date at UTC midnight.
+  date     DateTime
+  branchId String
+  visits   Int      @default(0)
+  peakHour Int?
+
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([date, branchId])
+  @@index([branchId, date])
+}
+
+// ---------------------------------------------------------------------------
+// EQUIPMENT
+// ---------------------------------------------------------------------------
+
+/// AC-13 "mark the machine 'In Maintenance'". ENH-04 — IMPLIED-MANDATORY:
+/// AC-13 is unsatisfiable without an equipment register.
+/// B-03: branchId NOT NULL — a machine is physically at one location.
+model Equipment {
+  id        String   @id
+  assetCode String   @unique
+  name      String
+  /// B-03 — NOT NULL.
+  branchId  String
+  /// operational | in_maintenance | retired
+  status    String   @default("operational")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  branch    Branch                @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  schedules MaintenanceSchedule[]
+
+  @@index([branchId, status])
+}
+
+/// AC-13 "recurring service schedule (e.g., every 3 months)". [src: intervalDays]
+model MaintenanceSchedule {
+  id             String    @id
+  equipmentId    String
+  intervalDays   Int
+  nextDueAt      DateTime
+  lastServicedAt DateTime?
+
+  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@index([nextDueAt])
+  @@index([equipmentId])
+}
+
+// ---------------------------------------------------------------------------
+// MONEY — all amounts are INTEGER minor units (NFR-24). Never a float.
+// ---------------------------------------------------------------------------
+
+/// AC-21 "payment is made via cash, card, or online". [src: method]
+model Payment {
+  id             String   @id
+  memberId       String
+  membershipId   String?
+  /// Minor units. CHECK amountMinor > 0 in migration SQL.
+  amountMinor    Int
+  /// cash | card | online
+  method         String
+  /// settled | failed
+  status         String   @default("settled")
+  paidAt         DateTime
+  /// NFR-22 — AC-22 allows automatic AND manual triggering; guards duplicates.
+  idempotencyKey String?  @unique
+  createdAt      DateTime @default(now())
+
+  member     Member      @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  membership Membership? @relation(fields: [membershipId], references: [id], onDelete: SetNull)
+
+  receipt Receipt?
+  refunds Refund[]
+
+  @@index([memberId, paidAt])
+  @@index([paidAt])
+}
+
+/// AC-04 "print a receipt with the payment details"; AC-21 "issue a receipt".
+/// Exactly one receipt per payment.
+model Receipt {
+  id            String   @id
+  paymentId     String   @unique
+  receiptNumber String   @unique
+  issuedAt      DateTime @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+}
+
+/// AC-22 "create a PDF invoice and email it"; AC-25 overdue tracking.
+model Invoice {
+  id             String   @id
+  number         String   @unique
+  memberId       String
+  membershipId   String?
+  amountMinor    Int
+  dueAt          DateTime
+  /// open | paid | overdue | void
+  status         String   @default("open")
+  idempotencyKey String?  @unique
+  createdAt      DateTime @default(now())
+
+  member     Member      @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  membership Membership? @relation(fields: [membershipId], references: [id], onDelete: SetNull)
+
+  @@index([status, dueAt])
+  @@index([memberId])
+}
+
+/// AC-24 "Given an APPROVED refund request, When the accountant enters the
+/// refund details, Then send funds back and log the transaction."
+/// B-04: approval is an EXTERNAL precondition — ENH-05 (a RefundRequest
+/// workflow) was WITHDRAWN as over-engineered. Approval is captured as DATA.
+model Refund {
+  id                  String   @id
+  paymentId           String
+  amountMinor         Int
+  approvedByStaffId   String?
+  approvedAt          DateTime
+  /// Free-text reference to the out-of-system approval (AC-24 precondition).
+  approvalReference   String
+  processedAt         DateTime @default(now())
+
+  payment    Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  approvedBy Staff?  @relation(fields: [approvedByStaffId], references: [id], onDelete: SetNull)
+
+  @@index([paymentId])
+  @@index([processedAt])
+}
+
+/// AC-23 "system transaction logs"; NFR-24 accurate financial records.
+/// APPEND-ONLY — ADR-011. Never updated, never deleted; corrections are
+/// compensating entries.
+model LedgerEntry {
+  id          String   @id
+  /// payment | refund | charge
+  kind        String
+  /// Signed minor units: payments positive, refunds negative.
+  amountMinor Int
+  memberId    String?
+  sourceType  String
+  sourceId    String
+  occurredAt  DateTime @default(now())
+
+  member Member? @relation(fields: [memberId], references: [id], onDelete: SetNull)
+
+  @@index([occurredAt, kind])
+  @@index([sourceType, sourceId])
+}
+
+// ---------------------------------------------------------------------------
+// PLATFORM
+// ---------------------------------------------------------------------------
+
+/// ENH-13 — no story defines an audit log, but AC-23, AC-24 and NFR-24 all
+/// point at one. APPEND-ONLY.
+model AuditEvent {
+  id         String   @id
+  /// staff | member | system
+  actorType  String
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String
+  beforeJson String?
+  afterJson  String?
+  ip         String?
+  occurredAt DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([occurredAt])
+  @@index([action])
+}
+
+/// ADR-008 transactional outbox. NFR-01's 3 s budget must not contain a third
+/// party's latency, and NFR-19 can only guarantee DISPATCH, never delivery.
+model NotificationOutbox {
+  id          String    @id
+  /// email | sms  — SMS is a STUB: logged, never sent (AMB-12)
+  channel     String
+  recipient   String
+  template    String
+  payloadJson String    @default("{}")
+  /// pending | sent | failed
+  status      String    @default("pending")
+  attempts    Int       @default(0)
+  lastError   String?
+  createdAt   DateTime  @default(now())
+  sentAt      DateTime?
+
+  @@index([status, attempts])
+  @@index([createdAt])
+}

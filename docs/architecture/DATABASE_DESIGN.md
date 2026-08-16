@@ -1,6 +1,10 @@
 # Ironboard — Database Design
 
-**Phase:** 2 — Architecture · **Date:** 2026-08-16 · **Status:** Design only, **no schema written**
+**Phase:** 3 — Database Implementation · **Date:** 2026-08-16
+**Status:** ✅ **IMPLEMENTED** — schema, migration, constraints, indexes, seed and tests exist.
+**Schema:** `server/prisma/schema.prisma` · **Migration:** `server/prisma/migrations/20260816135841_init/`
+**Seed:** `server/src/db/seed.ts` · **Reset:** `server/src/db/reset.ts` · **Tests:** `server/tests/` (63 passing)
+**Evidence:** `docs/testing/evidence/phase3-db-20260816T140858Z.log`
 **Diagram:** `docs/diagrams/er/er-model.png` (`DIA-16`, ENHANCEMENT)
 **Engine:** SQLite (WAL) via Prisma 6 + `better-sqlite3` — ADR-005
 
@@ -37,8 +41,10 @@ are all invented, and `NFR-02` ("validate all member information") gives no guid
 
 ## 2. Entity catalogue
 
-25 entities in eight groups. `⚠️` marks an entity that exists **only** to unblock a Lab 1 story
-whose write path no story provides (`B-04`, unresolved).
+**28 entities in eight groups** (the earlier "25" was an arithmetic error — the list below has
+always contained 28 after `RefundRequest` was withdrawn by `B-04`).
+`⚠️` marks an entity that exists **only** to unblock a Lab 1 story whose write path no story
+provides. Every entity has a documented purpose; none was added because it "sounded useful".
 
 ### 2.1 Identity & Access
 
@@ -99,8 +105,7 @@ whose write path no story provides (`B-04`, unresolved).
 | `Payment` | cash / card / online | `AC-21`, `NFR-21` |
 | `Receipt` | 1:1 with payment | `AC-04`, `AC-21` |
 | `Invoice` | Numbered, idempotent | `AC-22`, `AC-25`, `NFR-22` |
-| `RefundRequest` ⚠️ | Requires approval | `AC-24`, `ENH-05` |
-| `Refund` | Executed refund | `AC-24`, `NFR-24` |
+| `Refund` | Executed refund. **`RefundRequest` was WITHDRAWN (`B-04`)** — `AC-24` treats approval as an *external* precondition, so `approvedByStaffId` / `approvedAt` / `approvalReference` capture it as data | `AC-24`, `NFR-24` |
 | `LedgerEntry` | **Append-only** financial record | `AC-23`, `NFR-24`, ADR-011 |
 
 ### 2.8 Platform
@@ -193,6 +198,73 @@ The diagram below retains the original four-state proposal for history and is **
 
 Every transition writes a `MembershipEvent` row. This table is the direct input to the required
 state chart (`DIA-07`).
+
+---
+
+## 4b. Implemented constraints, indexes and triggers
+
+SQLite cannot express `CHECK` via Prisma, so **36 CHECK constraints** are injected into the
+migration SQL, alongside 2 partial unique indexes and 7 triggers. This is deliberate: the rules
+below hold **even when application code is absent or wrong**.
+
+### CHECK constraints (36)
+
+| Table | Constraint |
+|---|---|
+| `Membership` | `state IN ('ACTIVE','EXPIRED','CANCELLED')` · `expiresAt > startsAt` · `(state='CANCELLED') = (cancelledAt IS NOT NULL)` |
+| `MembershipEvent` | `toState` and nullable `fromState` limited to the same three values |
+| `Payment` | `method IN ('cash','card','online')` · `status IN ('settled','failed')` · `amountMinor > 0` |
+| `Invoice` | `status IN ('open','paid','overdue','void')` · `amountMinor > 0` |
+| `Refund`, `LedgerEntry` | `amountMinor > 0` / `amountMinor <> 0`; `kind IN ('payment','refund','charge')` |
+| `Branch`, `Staff`, `Equipment`, `SessionSlot`, `NotificationOutbox`, `AuditEvent`, `Session` | status/kind/channel/actor value sets |
+| `SessionSlot` | `endsAt > startsAt` · **exactly one** of `memberId`/`prospectId` |
+| `WorkoutPlan` | template ⇒ no member; non-template ⇒ member required |
+| `MembershipPlan` | `priceMinor >= 0` · `durationDays > 0` |
+| `PlanExercise` | `sets > 0` · `reps > 0` |
+| `AttendanceDaily` | `visits >= 0` · `peakHour BETWEEN 0 AND 23` |
+| `TrainerAssignment` | `source IN ('workout_plan','pt_session','admin')` |
+
+### Partial unique indexes (2)
+
+| Index | Enforces |
+|---|---|
+| `Membership_one_active_per_member` | At most **one ACTIVE membership per member** (`B-05`) |
+| `TrainerAssignment_one_live_per_pair` | At most one **live** assignment per (trainer, member); revoking frees the pair (`ENH-20`) |
+
+### Triggers (7)
+
+| Trigger | Enforces |
+|---|---|
+| `LedgerEntry_no_update` / `_no_delete` | Append-only ledger (ADR-011, `NFR-24`) |
+| `AuditEvent_no_update` / `_no_delete` | Append-only audit trail (`ENH-13`) |
+| `MembershipEvent_no_update` | Append-only state history (`WF-02`) |
+| `Membership_state_transition_guard` | The **`B-05` transition table**: `CANCELLED` is terminal; `ACTIVE→{EXPIRED,CANCELLED}`; `EXPIRED→{ACTIVE,CANCELLED}` |
+| `Refund_not_exceeding_payment` | Σ refunds ≤ payment amount (`NFR-24`) |
+
+### ⚠️ Known limitation — Prisma discards trigger messages
+
+Prisma maps SQLite `SQLITE_CONSTRAINT_TRIGGER` (code 1811) onto its generic **P2003 "Foreign key
+constraint violated"**, throwing away the `RAISE(ABORT)` text. Verified in Phase 3:
+
+```
+via Prisma  → "Foreign key constraint violated on the foreign key"
+via raw SQL → "Invalid membership transition: CANCELLED is terminal (B-05)"
+```
+
+**The write is still correctly rejected** — only the message is lost. Two consequences:
+
+1. **The service layer must never branch on the Prisma error message** to distinguish a
+   business-rule abort from a genuine FK violation. It must pre-check the rule and treat the
+   trigger as a backstop.
+2. Tests assert triggers **twice** — through Prisma (rejection happens) and through raw SQL
+   (the real message is visible).
+
+### ⚠️ Append-only triggers vs. re-seeding
+
+The append-only triggers block the seed's own `DELETE` on re-run. `seed.ts` therefore reads the
+trigger DDL back from `sqlite_master`, drops the triggers, truncates, then **restores them
+verbatim** — so the migration stays the single source of truth and the DDL cannot drift. This
+was found by the determinism test, not by inspection.
 
 ---
 
@@ -318,14 +390,70 @@ Reports must state that the absolute claim cannot be proven, and report the prox
 
 ---
 
-## 11. Seed data (`ENH-16`)
+## 11. Seed data (`ENH-16`) — IMPLEMENTED
 
-The five timing NFRs cannot be measured against an empty database, and **no source gives any
-volume figure** (`INC-07`). Seed provides: 3 branches · 6 roles with permissions · 1 staff
-account per role · 1 000 members · 5 plans · 90 days of attendance · payments, invoices and
-ledger entries.
+> ⚠️ **DEVELOPMENT SEED DATA — NOT PRODUCTION DATA.**
+> Every name, email and phone number is fabricated. Emails use the RFC 2606 reserved
+> `.invalid` TLD and can never resolve. `passwordHash` is the literal placeholder
+> `DEV_SEED_NOT_A_REAL_HASH` — **not a usable credential**. `conditionCipher` values are
+> `DEV_SEED_PLACEHOLDER:` strings, **not encrypted data**. All three facts are asserted by
+> `T-U-062`.
 
-Volumes are an assumption, recorded as such.
+**Deterministic**: a fixed mulberry32 seed (`20260816`) and a fixed epoch mean repeated runs
+produce byte-identical data. `T-U-063` re-runs the seed and compares a content fingerprint.
+
+Scale — the ADR-012 🟦 **ENGINEERING VERIFICATION THRESHOLD** for a student/college project:
+
+| Entity | Rows | Entity | Rows |
+|---|---|---|---|
+| Branch | 3 | AttendanceEvent | 11 792 |
+| Role / Permission | 6 / 36 | AttendanceDaily | 270 |
+| Staff | 18 (incl. 1 `pending` for `AC-11`) | Equipment | 36 |
+| Member | 1 000 | MaintenanceSchedule | 36 |
+| MembershipPlan | 5 | Payment / Receipt | 952 / 952 |
+| Membership | 1 000 — **725 ACTIVE · 175 EXPIRED · 100 CANCELLED** | Invoice | 952 |
+| MembershipEvent | 1 375 | Refund | 37 |
+| TrainerAssignment | 350 | LedgerEntry | 989 |
+| WorkoutPlan / PlanExercise | 253 / 960 | AuditEvent | 101 |
+| ProgressEntry | 840 | NotificationOutbox | 100 |
+| MedicalRestriction / Prospect | 40 / 40 | SessionSlot | 158 |
+
+Runs in **~950 ms**. Deliberately **not** production scale — `T-U-060` asserts both the floor
+(so NFR measurement is meaningful) and a ceiling (so no production-scale claim is implied).
+
+The seed also guarantees a non-empty result for the **derived** "expiring soon" query (`AC-19`),
+so `B-05`'s decision that `EXPIRING` is a predicate rather than a state is exercised with real
+data.
+
+## 11b. Database initialisation / reset
+
+```bash
+npm run db:deploy        # apply migrations
+npm run db:seed          # deterministic development seed
+npm run db:reset         # delete local dev DB file -> migrate -> seed
+npm run db:reset:noseed  # schema only
+```
+
+⚠️ `prisma migrate reset` is **not** used. It is guarded against invocation by AI agents, and
+that guard was respected rather than bypassed. `src/db/reset.ts` performs the equivalent for a
+**local development SQLite file** (delete file → `migrate deploy` → seed) and refuses to run
+when `NODE_ENV=production`.
+
+## 11c. NFR testing implications
+
+| NFR | What the database now provides | Still required |
+|---|---|---|
+| `NFR-01` 3 s registration | Indexed `Member` insert; outbox row avoids inline email | Service + API + timing harness |
+| `NFR-14` 5 s attendance report | `AttendanceDaily` pre-aggregate + `(branchId,date)` unique index | Report query + measurement |
+| `NFR-23` 5 s revenue report | `LedgerEntry(occurredAt,kind)` index; append-only ledger | Report query + measurement |
+| `NFR-10` medical access | `TrainerAssignment` + `(trainerId,memberId)` index | RBAC guard + `T-SEC-001` |
+| `NFR-17` valid cancellation | Transition guard trigger + CHECK | Service-level rule + `AC-17` test |
+| `NFR-22` invoice accuracy | `idempotencyKey` unique on `Payment` and `Invoice` | Idempotent generation |
+| `NFR-24` financial accuracy | Integer minor units · append-only ledger · refund ≤ payment trigger | Ledger invariant test |
+| `NFR-07`/`NFR-13` durability | WAL + `synchronous = FULL`; soft delete; no hard-delete path | Backup/restore drill |
+
+**None of these NFRs is VERIFIED.** Database support exists; verification needs the service,
+API and test layers.
 
 ---
 
