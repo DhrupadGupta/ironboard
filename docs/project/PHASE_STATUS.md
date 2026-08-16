@@ -1,6 +1,6 @@
 # Ironboard — Phase Status
 
-**Updated:** 2026-08-16 · **Commit:** see git log · **Current phase:** 2 architecture complete · B-03/B-04/B-05 resolved · Phase 3 NOT started
+**Updated:** 2026-08-16 · **Commit:** see git log · **Current phase:** Pre-Phase-3 decisions complete · **Phase 3 NOT started**
 
 > Live status. Update on every phase transition and whenever a blocking decision is resolved.
 > **No status may be marked ✅ without a checkable artefact path.**
@@ -152,7 +152,7 @@ blocker, and `DIA-12` may proceed under the stated `ASM-09` assumption.
 | 4 Modules | D01 → D04 → D02 → D05 → D03 (dependency order, not numeric) | ✅ six stories unblocked (`B-04`) |
 | 5 Frontend | Module screens, mobile nav (`ENH-11`) | — |
 | 6 Cross-cutting | Outbox, reporting, audit log, scheduler | — |
-| 7 Verification | 25 AC suites, 25 NFR verifications, all test levels | 15 NFRs need ADR-012 confirmation |
+| 7 Verification | 25 AC suites, 25 NFR verifications, all test levels | ✅ ADR-012 accepted; `ENH-16` seed data is a prerequisite |
 | 8 Academic | Nine-field test cases, bug reports, burndown, constraints, DoD | `CON-05` — 4 cases / 2 functionalities |
 | 9 Audit | `academic-submission-audit` report | — |
 
@@ -202,8 +202,19 @@ proposed. `ENH-05` was withdrawn entirely as over-engineered.
 
 | ID | Finding | Classification |
 |---|---|---|
-| `ENH-19` | No user story creates a membership — sixth missing write path | **IMPLIED-MANDATORY** |
-| `ENH-20` | `TrainerAssignment` needed for `NFR-10`'s per-member reading | **IMPLIED-MANDATORY** |
+| `ENH-19` | No user story creates a membership — sixth missing write path | ✅ **RESOLVED** — 1 endpoint, Membership Manager, no new tables |
+| `ENH-20` | `TrainerAssignment` needed for `NFR-10`'s per-member reading | ✅ **RESOLVED** — side effect of `AC-06`/`AC-08`, no new feature |
+
+### Remaining open — none blocking
+
+| ID | Status | Why not solved |
+|---|---|---|
+| `B-06` | ⚠️ Open | Only faculty can say which experiment numbering governs; mitigated by labelling per artefact |
+| `ASM-09` | ⚠️ Open | Three golden rules are not in any supplied document; stated as an assumption on `DIA-12` |
+| `AMB-10` | ⚠️ Open | The five shortlisted case studies **do not exist in source** and **will not be fabricated** |
+
+**Gate check:** `docs/project/PRE_PHASE_3_DECISION_REGISTER.md` — database architecture safe to
+implement: **YES**.
 
 ---
 
@@ -225,7 +236,7 @@ enumerates the three golden rules.
 
 | ADR | Decision | Status |
 |---|---|---|
-| ADR-012 | Assumed thresholds for 15 unquantified NFRs | ⚠️ **Still provisional** — needs confirmation |
+| ADR-012 | Verification thresholds for 15 unquantified NFRs | ✅ **ACCEPTED** — `ADR-012-NFR-THRESHOLDS.md`; scaled to student project, 🟩/🟦 labelled |
 | ADR-013 | ~~Four membership states~~ | ❌ **SUPERSEDED** by `B-05` — three states |
 | ADR-014 | ~~Branch as a NOT NULL scoping column~~ | ❌ **SUPERSEDED** by `B-03` — nullable `homeBranchId` on people |
 

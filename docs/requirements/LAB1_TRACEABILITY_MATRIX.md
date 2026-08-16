@@ -132,6 +132,7 @@ Homepage: `Dept / 02` · "Trainer Dept." · badge `5 stories` ·
 | **NFR** | `NFR-06` Performance — "Workout plans should load within 2 seconds." |
 | **HP** | "Assign and link workout plans" (line 341) |
 | **Depends on** | `FR-REC-01` (member profile) |
+| **Side effect** | Creates a `TrainerAssignment` (`ENH-20`) — `AC-06` literally says "**link** the plan to the member's profile". This materialises `NFR-10`'s per-member authorisation without any new user-facing feature |
 | **Gaps** | "chooses **or** creates" implies a plan template library that no story defines. `AMB-12` notify channel unspecified |
 | **Impl / Test** | ⬜ / ⬜ |
 
@@ -509,6 +510,21 @@ These four break the department boundary and must be sequenced across teams:
 | `FR-MEM-03` Renew (D04) | `FR-ACC-01` Collect payment (D05) | AC-18: "When a renewal payment is completed" |
 | `FR-ADM-05` Monitor all (D03) | D01, D02, D04, D05 | AC-15: "summary updates from all departments" |
 | `FR-ACC-05` Overdue (D05) | `FR-MEM-01` Plans (D04) | AC-25: dues arise from plan pricing |
+
+---
+
+## Membership creation — `ENH-19` ⚠️
+
+`US-17`, `US-18`, `US-19` and `US-20` all presuppose a membership exists, but **no user story
+or acceptance criterion creates one.** Verified against the original: `AC-01` creates a
+*person*, `AC-16` creates a *plan*, and `AC-21` presupposes a *balance due*.
+
+Resolved as **`ENH-19` — ENGINEERING ENHANCEMENT, REQUIRED FOR SYSTEM COMPLETENESS**:
+one endpoint (`POST /members/:id/memberships`), owned by the Membership Manager because `D04`
+owns every other membership operation. **No new user story was created**, and `AC-01` is left
+untouched so it remains testable exactly as written.
+
+Detail: `docs/requirements/ENH-19_MEMBERSHIP_CREATION.md`.
 
 ---
 

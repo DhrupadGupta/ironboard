@@ -19,9 +19,9 @@ or `B` ID is named — no assumption is presented as a requirement.
 | [009](#adr-009) | Plain CSS tokens; no CSS framework | Accepted |
 | [010](#adr-010) | Test pyramid with one suite per acceptance criterion | Accepted |
 | [011](#adr-011) | Append-only ledger and audit log | Accepted |
-| [012](#adr-012) | Assumed thresholds for the 15 unquantified NFRs | **Provisional** |
-| [013](#adr-013) | Membership modelled as an explicit state machine | **Provisional — `B-05`** |
-| [014](#adr-014) | Branch as a scoping column, not a tenant boundary | **Provisional — `B-03`** |
+| [012](#adr-012) | Verification thresholds for the 15 unquantified NFRs | ✅ Accepted |
+| [013](#adr-013) | ~~Four-state membership machine~~ | ❌ **Superseded by B-05** (three states) |
+| [014](#adr-014) | ~~Branch as a NOT NULL scoping column~~ | ❌ **Superseded by B-03** (nullable homeBranchId) |
 | [015](#adr-015) | Member role is an enhancement, not academic coverage | Accepted |
 
 ---
@@ -253,39 +253,26 @@ academic coverage.
 
 ---
 
-## ADR-012 — Assumed thresholds for the 15 unquantified NFRs {#adr-012}
+## ADR-012 — Verification thresholds for the 15 unquantified NFRs {#adr-012}
 
-**Status: PROVISIONAL — requires confirmation.**
+**Status: ✅ ACCEPTED — expanded into `docs/architecture/ADR-012-NFR-THRESHOLDS.md`.**
 
-**Context.** 15 of 25 NFRs state no measurable target. `EXP-2-SE.docx` calls this out itself:
-*"If you cannot quantify the story in concrete terms, this should be a bad smell."*
+The provisional table that stood here has been **superseded**. Two changes matter:
 
-**Decision.** Propose a threshold per NFR, record it as an `ASM-nn`, and report results as
-**`PASS (ASSUMED THRESHOLD ASM-nn)`** — never plain `PASS`.
+1. **Strict 🟩 SOURCE / 🟦 ENGINEERING labelling.** No invented figure may be cited as an
+   academic requirement; 🟦 results report as `PASS (ENGINEERING THRESHOLD)`.
+2. **Scaled down to student/college project reality.** The earlier draft proposed
+   production-shaped figures (10 branches × 1 000 members; availability as uptime percentages).
+   Availability NFRs are now verified as bounded 30-minute soak runs with 0 unhandled 5xx, and
+   `NFR-12` targets 3 branches / 1 000 members at ≤ 10 concurrent requests.
 
-| NFR | Vague as written | Proposed assumed threshold |
-|---|---|---|
-| `NFR-02` | "validate all member information" | Every field has a Zod rule; 0 invalid writes |
-| `NFR-04` | "accurately without errors" | Receipt matches payment record byte-for-byte |
-| `NFR-05` | "easy to access and understand" | ≤ 3 clicks from dashboard; totals visible without scroll at 1280px |
-| `NFR-07` | "without data loss" | RPO = 0 for committed transactions |
-| `NFR-08` | "always during working hours" | 99.9 %, "working hours" defined as 06:00–22:00 local — **`AMB-04`** |
-| `NFR-09` | "easy to update without affecting existing data" | Plan edits preserve historical `ProgressEntry` rows |
-| `NFR-12` | "multiple branches efficiently" | 10 branches × 1 000 members, no query > 5 s |
-| `NFR-13` | "**never** be lost" | **Unfalsifiable.** Proxy: soft delete + tested restore |
-| `NFR-16` | "easy to create and modify" | ≤ 3 clicks; plan modification is **`ENH-14`** |
-| `NFR-17` | "only valid inactive" | Only states permitted by ADR-013 may transition to Cancelled |
-| `NFR-19` | "delivered successfully" | ≥ 99 % **dispatched** with ≥ 3 retries — not delivered |
-| `NFR-20` | "whenever requested" | 99.9 % |
-| `NFR-22` | "accurately **every time**" | **Unfalsifiable.** Proxy: idempotent generation, golden-file match |
-| `NFR-24` | "maintain accurate financial records" | Ledger balance invariant holds after every operation |
-| `NFR-25` | "whenever required" | 99.9 % |
+`NFR-13` and `NFR-22` remain **unfalsifiable absolutes** and are reported as
+`PASS (PROXY)`. `NFR-19` measures **dispatch**, never delivery. The two 🟩 99.9 % figures
+(`NFR-03`, `NFR-15`) stay as source requirements but are proxy-verified, since demonstrating
+99.9 % needs production telemetry this project does not have.
 
-**Consequences.** ✅ All 25 NFRs become verifiable. ⚠️ **These numbers are invented.** They must
-never appear in a report as sourced requirements. ⚠️ `NFR-13` and `NFR-22` remain unfalsifiable
-as written and will be reported as such.
-
-**Drives:** `AMB-06`, `ASM-10`, all 15 unquantified NFRs.
+Full detail: `docs/architecture/ADR-012-NFR-THRESHOLDS.md` and
+`docs/requirements/NFR_VERIFICATION_THRESHOLDS.md`.
 
 ---
 

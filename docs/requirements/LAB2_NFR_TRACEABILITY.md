@@ -424,6 +424,23 @@ An implicit performance budget is discernible: **interactive writes 2–3 s, rep
 
 ---
 
+## 3.4 Verification thresholds — ADR-012 resolved
+
+All 25 NFRs now have a threshold. **Source-provided figures (🟩) and project-chosen figures
+(🟦) are strictly separated** in `docs/requirements/NFR_VERIFICATION_THRESHOLDS.md`.
+
+| Category | Count | Reported as |
+|---|---|---|
+| 🟩 Source thresholds | 10 | `PASS` / `FAIL` |
+| 🟩 …proxy-verified only (`NFR-03`, `NFR-15` — 99.9 % not demonstrable at project scale) | 2 | `PASS (PROXY)` |
+| 🟦 Engineering verification thresholds | 15 | **`PASS (ENGINEERING THRESHOLD)`** |
+| 🟦 …proxies for unfalsifiable absolutes (`NFR-13`, `NFR-22`) | 2 | `PASS (PROXY)` |
+
+⚠️ **No 🟦 figure may be cited as an academic requirement.** Thresholds are scaled for a
+student/college local project — no production SLA is claimed anywhere.
+
+---
+
 ## 4. Measurability assessment
 
 | Result | Count | % |
