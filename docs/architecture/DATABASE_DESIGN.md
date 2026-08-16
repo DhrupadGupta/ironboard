@@ -3,7 +3,7 @@
 **Phase:** 3 — Database Implementation · **Date:** 2026-08-16
 **Status:** ✅ **IMPLEMENTED** — schema, migration, constraints, indexes, seed and tests exist.
 **Schema:** `server/prisma/schema.prisma` · **Migration:** `server/prisma/migrations/20260816135841_init/`
-**Seed:** `server/src/db/seed.ts` · **Reset:** `server/src/db/reset.ts` · **Tests:** `server/tests/` (136 passing)
+**Seed:** `server/src/db/seed.ts` · **Reset:** `server/src/db/reset.ts` · **Tests:** `server/tests/` (139 passing)
 **Evidence:** `docs/testing/evidence/phase3-db-20260816T140858Z.log` (implementation) ·
 `docs/testing/evidence/phase3-selfreview-20260816T145257Z.log` (self-review)
 **Diagram:** `docs/diagrams/er/er-model.png` (`DIA-16`, ENHANCEMENT)
@@ -248,6 +248,42 @@ live DDL from `sqlite_master` and fails if the schema ever grows a CHECK that ha
 | `MembershipEvent_no_update` | Append-only state history (`WF-02`) |
 | `Membership_state_transition_guard` | The **`B-05` transition table**: `CANCELLED` is terminal; `ACTIVE→{EXPIRED,CANCELLED}`; `EXPIRED→{ACTIVE,CANCELLED}` |
 | `Refund_not_exceeding_payment` | Σ refunds ≤ payment amount (`NFR-24`) |
+
+### Test isolation — the shared-database contract
+
+The suite runs against **one** SQLite file (single-writer, so `vitest.config.ts` sets
+`fileParallelism: false`). Rows a test leaves behind are therefore visible to every later test
+file. This is not hypothetical: it produced a real defect — a cold-cache run failed
+**135 / 136** because `constraints.test.ts` (12 members, 2 memberships, 2 payments, 2 refunds,
+3 trainer assignments) and `membership.test.ts` (7 members, 7 memberships, 1 event) cleaned up
+nothing, and `T-U-063` (seed determinism) compares the database either side of a re-seed that
+truncates. The leaked rows were read as **seed non-determinism**, which they were not. Because
+Vitest sequences files by cached duration, the failure moved between runs.
+
+Every id minted by `uid()` carries the marker `_test_`. That marker — nothing else — defines a
+test row, and the contract each test file honours is:
+
+| Hook | Call | Proves |
+|---|---|---|
+| `beforeAll` | `expectPristine(db, 'entry')` | the **previous** file cleaned up |
+| `afterAll` | `purgeTestRows(db)` | this file's rows are gone |
+| `afterAll` | `expectPristine(db, 'exit')` | the purge was complete |
+| suite teardown (`tests/global-setup.ts`) | `findTestRows(db)` | nothing survived the whole run |
+
+The entry assertion is what makes the guarantee **order-independent** — a leak that happens to
+be harmless in one file ordering still fails the run, and the error names the offending tables.
+
+`purgeTestRows()` deletes child-first with `foreign_keys = ON` (a wrong order fails loudly
+rather than orphaning rows) and deliberately does **not** disable the append-only triggers: a
+test row in `LedgerEntry` or `AuditEvent` cannot be cleaned up, so no test may write to those
+tables outside a rolled-back transaction. `RolePermission` is exempt — composite primary key,
+no `id` column, and no test creates one. `T-U-006` guards the table list against schema drift.
+
+`T-U-064` is the proof the mechanism works rather than the proof it is unused: it plants a row,
+asserts the detector sees it, asserts `expectPristine` throws naming the table, purges, and
+asserts the baseline is restored. Verified by negative control — with the purge disabled, every
+individual test still passed while the run exited **1**. Evidence:
+`docs/testing/evidence/phase3-test-isolation-20260816T152251Z.log`.
 
 ### ⚠️ Known limitation — Prisma discards trigger messages
 

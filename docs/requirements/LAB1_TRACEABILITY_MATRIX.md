@@ -17,7 +17,7 @@ acceptance tests do not exist.
 
 | Layer | Phase 3 state |
 |---|---|
-| Database support | ✅ 28 entities, 36 CHECK constraints, 2 partial unique indexes, 7 triggers, 63 passing DB tests |
+| Database support | ✅ 29 entities, 36 CHECK constraints, 2 partial unique indexes, 7 triggers, 139 passing DB tests |
 | Service / API / UI | 🔴 Not started |
 | Acceptance tests (`AC-01`…`AC-25`) | 🔴 **0 / 25 — none written, none passing** |
 

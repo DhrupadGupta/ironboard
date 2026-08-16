@@ -6,8 +6,19 @@
 **Phase 3 self-review:** 12 checks, all answered against a live database rather than against
 documentation. 3 defects were found and fixed (ER-diagram drift, no disabled branch in the seed,
 partial CHECK-constraint coverage). Evidence:
-`docs/testing/evidence/phase3-selfreview-20260816T145257Z.log` — 136 tests passing, typecheck
-clean, clean rebuild from migrations verified.
+`docs/testing/evidence/phase3-selfreview-20260816T145257Z.log` — typecheck clean, clean rebuild
+from migrations verified.
+
+**Phase 3 defect found in repository re-verification (2026-08-16), FIXED:** the suite was
+**not** 136/136. On a cold cache it was **135/136** — `T-U-063` (seed determinism) failed
+because `constraints.test.ts` and `membership.test.ts` leaked rows into the shared database, and
+`T-U-063` compares the database either side of a truncating re-seed. Order-dependent, so it
+passed or failed depending on Vitest's cached file sequencing. Fixed by a per-file isolation
+contract plus a suite-level teardown guard; 3 tests added (`T-U-006` ×2 purge-list drift guard,
+`T-U-064` isolation machinery), and two assertions previously weakened by the leak were
+tightened. **139/139**, verified over 3 cold-cache runs, 2 warm-cache runs, 6 individual files,
+11 shuffled file orderings and a negative control. Evidence:
+`docs/testing/evidence/phase3-test-isolation-20260816T152251Z.log`.
 
 > Live status. Update on every phase transition and whenever a blocking decision is resolved.
 > **No status may be marked ✅ without a checkable artefact path.**
@@ -157,7 +168,7 @@ artefact `DIA-05` is unblocked.
 
 | Phase | Deliverables | Notes |
 |---|---|---|
-| 3 Foundation — DB ✅ | Workspace scaffold, Prisma schema (28 entities), migration, 36 CHECKs, 7 triggers, deterministic seed, reset, 63 tests | ✅ **COMPLETE** — evidence `docs/testing/evidence/phase3-db-20260816T140858Z.log` |
+| 3 Foundation — DB ✅ | Workspace scaffold, Prisma schema (28 entities), migration, 36 CHECKs, 7 triggers, deterministic seed, reset, 139 tests | ✅ **COMPLETE** — evidence `docs/testing/evidence/phase3-db-20260816T140858Z.log`, `phase3-test-isolation-20260816T152251Z.log` |
 | 3b Foundation — rest | Auth, RBAC, API skeleton, design-system primitives | 🔴 Not started |
 | 4 Modules | D01 → D04 → D02 → D05 → D03 (dependency order, not numeric) | ✅ six stories unblocked (`B-04`) |
 | 5 Frontend | Module screens, mobile nav (`ENH-11`) | — |
@@ -181,7 +192,7 @@ artefact `DIA-05` is unblocked.
 | Departments fully delivered | 0 | 5 |
 | Mandatory diagrams delivered | 0 | 11 |
 | **Database entities implemented** | **28** | **28** |
-| **Database tests passing** | **63** | **63** |
+| **Database tests passing** | **139** | **139** |
 | Use case documentation (`DIA-05`, written) | 0 | 1 |
 
 **Enhancements — reported separately, never summed with the above.**

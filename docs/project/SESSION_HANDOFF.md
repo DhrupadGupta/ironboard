@@ -17,7 +17,7 @@
 |---|---|
 | **Current phase** | **Phase 3 — Foundation / Database. COMPLETE, self-review PASSED.** |
 | **Completed phases** | Phase 0 (analysis + skills) · Phase 1 (master plan) · Phase 2 (architecture documents + architecture diagram) · Phase 3 (database) |
-| **Current phase status** | Phase 3 closed. 12-point self-review executed against a live database; 3 defects found and fixed; 136 tests passing; typecheck clean. **Phase 4 NOT started.** |
+| **Current phase status** | Phase 3 closed. 12-point self-review executed against a live database; 3 defects found and fixed. A **4th defect — test isolation — was found later by repository re-verification and is now fixed** (see §12). **139 tests passing**; typecheck clean. **Phase 4 NOT started.** |
 | **Overall project status** | 🟡 **Foundation only.** A database layer exists. **No service layer, no API, no HTTP server, no frontend, no authentication, no authorisation, no UI.** Zero of the 25 functional requirements are functionally delivered. Zero of the 25 NFRs are VERIFIED. 0 of the 11 mandatory academic diagrams and 0 of the 1 mandatory written artefact exist. |
 
 ### Phase table (mirrors `docs/project/PHASE_STATUS.md`)
@@ -150,7 +150,8 @@ academic diagram coverage.
 
 ### Tests created
 
-63 tests in Phase 3, plus 73 in the self-review = **136**.
+63 tests in Phase 3, plus 73 in the self-review = 136, plus 3 in the test-isolation fix
+(§12) = **139**.
 
 | File | IDs |
 |---|---|
@@ -163,9 +164,13 @@ academic diagram coverage.
 
 ### Tests run
 
-`npm run typecheck` clean · `npm test` → **136/136 passing**, 6 files, ~9.4 s ·
+`npm run typecheck` clean · `npm test` → **139/139 passing**, 6 files, ~9.4 s ·
 clean rebuild from migrations verified.
-Evidence: `docs/testing/evidence/phase3-selfreview-20260816T145257Z.log`.
+Evidence: `docs/testing/evidence/phase3-selfreview-20260816T145257Z.log`,
+`docs/testing/evidence/phase3-test-isolation-20260816T152251Z.log`.
+
+⚠️ **The "136/136" figure originally recorded in this file was wrong** — see §12. It held only
+for the file orderings in which `seed.test.ts` ran first.
 
 ---
 
@@ -483,7 +488,8 @@ password placeholders, `DEV_SEED_PLACEHOLDER:` medical strings. `T-U-062` assert
 
 ### Test failures
 
-**None.** 136/136 passing at `2c67587`. Typecheck clean.
+**None now.** One existed and was missed: `T-U-063` failed on a cold cache at `2c67587`
+(135/136). Fixed — see §12. **139/139 passing.** Typecheck clean.
 
 ---
 
@@ -496,7 +502,7 @@ The correct way to read the current state is *layer* incompleteness, not *task* 
 
 | Layer | What exists | What remains | Files involved |
 |---|---|---|---|
-| Database | Everything (schema, migration, constraints, seed, reset, 136 tests) | Nothing for Phase 3 | `server/prisma/`, `server/src/db/`, `server/tests/` |
+| Database | Everything (schema, migration, constraints, seed, reset, 139 tests) | Nothing for Phase 3 | `server/prisma/`, `server/src/db/`, `server/tests/` |
 | Service | Nothing | All business logic for the 25 FRs | `server/src/services/` (to be created) |
 | API | Design only (`API_ARCHITECTURE.md`) | Express app, routing, validation, error handling | `server/src/` (to be created) |
 | Auth | `Session`/`Role`/`Permission` tables, 0 sessions | Hashing, login, session issue/revoke, RBAC guard | blocked on `B-01`, `B-02` |
@@ -590,6 +596,77 @@ M  server/tests/seed.test.ts
 ### Not tracked, by design
 
 `server/.env` · `server/prisma/*.db*` · `node_modules/` — all covered by `.gitignore`.
+
+---
+
+## 12. TEST-ISOLATION DEFECT — found in re-verification, FIXED
+
+**Status: FIXED and verified. This section supersedes every "136/136" claim above.**
+
+### What was wrong
+
+The suite shares **one** SQLite file (single-writer, so `fileParallelism: false`).
+`constraints.test.ts` and `membership.test.ts` created persistent rows and cleaned up
+**nothing**:
+
+| File | Rows leaked per run |
+|---|---|
+| `constraints.test.ts` | Member ×12 · Membership ×2 · Payment ×2 · Refund ×2 · TrainerAssignment ×3 |
+| `membership.test.ts` | Member ×7 · Membership ×7 · MembershipEvent ×1 |
+| `schema.test.ts`, `checks.test.ts` | none — both already cleaned up |
+| `relationships.test.ts`, `seed.test.ts` | none — read-only |
+
+`T-U-063` fingerprints the database, re-runs the seed (which **truncates**), and compares. Any
+leaked row makes `before ≠ after`, so **test contamination was being reported as seed
+non-determinism** — the seed was never at fault. Vitest sequences files by cached duration, so
+the failure appeared only when `seed.test.ts` did not run first: cold cache **135 / 136**, warm
+cache 136 / 136.
+
+### What was changed
+
+Every id from `uid()` carries the marker `_test_`; that marker alone defines a test row.
+
+- `tests/helpers.ts` — `PURGE_ORDER` (28 tables, FK-safe child-first), `PURGE_EXEMPT`
+  (`RolePermission`: composite PK, no `id`), `findTestRows()`, `purgeTestRows()`,
+  `expectPristine()`.
+- **All six test files** — `beforeAll: expectPristine('entry')` (proves the *previous* file
+  cleaned up, which is what makes the guarantee order-independent) and
+  `afterAll: purgeTestRows() + expectPristine('exit')`.
+- `tests/global-setup.ts` — returns a teardown that fails the run if any test row survived,
+  even when every assertion passed.
+- **+3 tests:** `T-U-006` (×2) guards `PURGE_ORDER` against schema drift; `T-U-064` proves the
+  machinery works by planting a row, asserting detection, purging and asserting the baseline.
+- **Assertions tightened** — these had been *weakened to tolerate the leak*:
+  `T-U-060` member count `>= 1000` → `= 1000`; `relationships.test.ts` dropped three
+  `NOT LIKE '%_test_%'` scopes so the receipt, ledger and attendance invariants now cover
+  **every** row. `T-U-045` keeps its scope — that one is genuinely intra-file.
+- **Stale test titles corrected:** `T-U-001` "all 26 tables" → **29** (and now asserts the set
+  exactly, not just containment); `T-U-061` "all 26 tables" → "all 28 tables the seed
+  populates" (`Session` is empty by design — no login path exists).
+
+`T-U-063` was **not** deleted and **not** weakened. It is unchanged; the database it observes
+is now clean.
+
+### Verification — `docs/testing/evidence/phase3-test-isolation-20260816T152251Z.log`
+
+Database deleted → `prisma migrate deploy` → seed → then: **3 cold-cache full runs, 2
+warm-cache full runs, 6 files individually, 11 shuffled file orderings — 139/139 every time.**
+Zero marker rows and zero `C_test_*` member codes after the suite; post-suite totals identical
+to the pristine seed (members 1000, memberships 1000, payments 952, paymentTotal 934150000).
+`npm run typecheck` clean.
+
+**Negative control** (the reason this is a PASS and not an assumption): the purge was
+temporarily disabled and a deliberate leak added. The entry guard failed the run naming the
+leaked tables, and — with the leaking file run alone — **every individual test passed while the
+run exited 1** because the teardown guard fired. Both changes reverted; the file is
+byte-identical to the committed one.
+
+### Standing rule this adds
+
+**A test that writes a row owns its removal.** Mint ids only through `uid()`, never write to
+`LedgerEntry` or `AuditEvent` outside a rolled-back transaction (their append-only DELETE
+triggers make cleanup impossible), and add any new table to `PURGE_ORDER` — `T-U-006` will fail
+if you forget.
 
 ---
 

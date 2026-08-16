@@ -7,13 +7,26 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { PrismaClient } from '@prisma/client';
-import { testDb } from './helpers.js';
+import { testDb, uid, findTestRows, purgeTestRows, expectPristine } from './helpers.js';
 import { applyPragmas } from '../src/db/client.js';
 
 const serverRoot = resolve(import.meta.dirname, '..');
 let db: PrismaClient;
-beforeAll(async () => { db = testDb(); await applyPragmas(db); });
-afterAll(async () => { await db.$disconnect(); });
+
+// T-U-063 compares the database either side of a re-seed, and the re-seed
+// truncates. One leaked row from ANY earlier file would therefore be read as
+// seed non-determinism. The entry assertion rules that out before the
+// comparison runs, and names the file that actually leaked.
+beforeAll(async () => {
+  db = testDb();
+  await applyPragmas(db);
+  await expectPristine(db, 'entry');
+});
+afterAll(async () => {
+  await purgeTestRows(db);
+  await expectPristine(db, 'exit');
+  await db.$disconnect();
+});
 
 describe('T-U-060 seed scale matches ADR-012 (student/college project)', () => {
   it('3 operating branches + 1 disabled, 1000 members, 5 plans, 90 days of attendance', async () => {
@@ -23,8 +36,9 @@ describe('T-U-060 seed scale matches ADR-012 (student/college project)', () => {
     expect(await db.branch.count({ where: { status: 'active' } })).toBe(3);
     expect(await db.branch.count({ where: { status: 'disabled' } })).toBe(1);
     expect(await db.membershipPlan.count()).toBe(5);
-    // Tests in other files add probe members; assert the seed floor.
-    expect(await db.member.count()).toBeGreaterThanOrEqual(1000);
+    // Exact, not a floor: probe members from other files used to make this
+    // unassertable. The isolation contract means the count is now the seed's.
+    expect(await db.member.count()).toBe(1000);
     // Prisma stores DateTime as INTEGER epoch-milliseconds in SQLite, so
     // date() needs an explicit conversion — date("col") alone yields NULL.
     const days = await db.$queryRawUnsafe<{ n: bigint }[]>(
@@ -39,7 +53,9 @@ describe('T-U-060 seed scale matches ADR-012 (student/college project)', () => {
 });
 
 describe('T-U-061 seed populates every entity the phase requires', () => {
-  it('has rows in all 26 tables', async () => {
+  // 28 of the 29 tables. `Session` is excluded because it is empty BY DESIGN —
+  // no login path exists yet, so nobody has a session.
+  it('has rows in all 28 tables the seed populates', async () => {
     const counts: Record<string, number> = {
       Branch: await db.branch.count(), Role: await db.role.count(),
       Permission: await db.permission.count(), RolePermission: await db.rolePermission.count(),
@@ -119,6 +135,34 @@ describe('T-U-063 seeding is deterministic and reproducible', () => {
     });
     const after = await fingerprint();
     expect(after).toBe(before);
+  });
+});
+
+describe('T-U-064 the isolation machinery that protects T-U-063 actually works', () => {
+  /**
+   * T-U-063 is only meaningful if a leaked row would have been caught. Asserting
+   * the ABSENCE of leaks proves nothing on its own — an always-empty detector
+   * would pass identically. So this plants a row, proves the detector sees it,
+   * purges it, and proves the detector then reports clean.
+   */
+  it('detects a planted row, removes it, and reports clean afterwards', async () => {
+    await expectPristine(db, 'entry');
+
+    const branch = await db.branch.findFirstOrThrow();
+    await db.member.create({ data: { id: uid('mem'), memberCode: uid('C'),
+      fullName: 'Isolation Probe', email: `${uid('e')}@example.invalid`,
+      phone: '+910000000009', homeBranchId: branch.id } });
+
+    // 1. the detector sees it
+    expect(await findTestRows(db)).toEqual({ Member: 1 });
+    // 2. and expectPristine fails loudly, naming the table
+    await expect(expectPristine(db, 'exit')).rejects.toThrow(/TEST ISOLATION VIOLATION.*Member=1/s);
+    // 3. the purge removes exactly that row
+    expect(await purgeTestRows(db)).toBe(1);
+    // 4. and the database is back to the seeded baseline
+    expect(await findTestRows(db)).toEqual({});
+    expect(await db.member.count()).toBe(1000);
+    await expectPristine(db, 'exit');
   });
 });
 

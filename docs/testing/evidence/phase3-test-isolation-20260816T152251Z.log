@@ -1,0 +1,125 @@
+IRONBOARD — PHASE 3 TEST-ISOLATION FIX — VERIFICATION EVIDENCE
+Generated: 2026-08-16T15:22:51Z
+Branch:    claude/ironboard-handoff-review-0o2pag
+Base commit (pre-fix): 30b4c91
+Node: v22.22.2  npm: 10.9.7
+
+==============================================================
+DEFECT (as found)
+==============================================================
+Cold-cache full run before the fix: 135/136, T-U-063 FAILED.
+Leak inventory measured at failure:
+  constraints.test.ts  Member=12 Membership=2 Payment=2 Refund=2 TrainerAssignment=3  (no cleanup at all)
+  membership.test.ts   Member=7  Membership=7 MembershipEvent=1                       (no cleanup at all)
+  schema.test.ts / checks.test.ts  cleaned up already
+  relationships.test.ts / seed.test.ts  read-only
+T-U-063 compares the DB either side of a re-seed; the re-seed truncates,
+so leaked rows were read as seed non-determinism. Order-dependent:
+Vitest sequences files by cached duration, so the failure appeared and
+disappeared between runs.
+
+==============================================================
+STEP 1-3  destroy DB, rebuild from migrations, seed from scratch
+==============================================================
+$ ls prisma/*.db*
+(none)
+$ DATABASE_URL='file:./test.db' npx prisma migrate deploy
+    └─ migration.sql
+      
+All migrations have been successfully applied.
+$ DATABASE_URL='file:./test.db' npx tsx src/db/seed.ts
+│ NotificationOutbox  │ 100    │
+└─────────────────────┴────────┘
+membership states: ACTIVE=725 CANCELLED=100 EXPIRED=175
+
+==============================================================
+STEP 9  typecheck
+==============================================================
+$ npm run typecheck
+> @ironboard/server@0.1.0 typecheck
+> tsc --noEmit
+
+exit=0
+
+==============================================================
+STEP 4  full suite, COLD cache
+==============================================================
+ ✓ tests/checks.test.ts (73 tests) 291ms
+ ✓ tests/constraints.test.ts (18 tests) 251ms
+ ✓ tests/seed.test.ts (12 tests) 2342ms
+ ✓ tests/schema.test.ts (12 tests) 173ms
+ ✓ tests/membership.test.ts (10 tests) 197ms
+ ✓ tests/relationships.test.ts (14 tests) 108ms
+ Test Files  6 passed (6)
+      Tests  139 passed (139)
+   Duration  9.29s (transform 198ms, setup 0ms, collect 478ms, tests 3.36s, environment 1ms, prepare 441ms)
+
+==============================================================
+STEP 5  full suite again, WARM cache (different file order)
+==============================================================
+ ✓ tests/seed.test.ts (12 tests) 2258ms
+ ✓ tests/checks.test.ts (73 tests) 216ms
+ ✓ tests/constraints.test.ts (18 tests) 211ms
+ ✓ tests/membership.test.ts (10 tests) 156ms
+ ✓ tests/schema.test.ts (12 tests) 159ms
+ ✓ tests/relationships.test.ts (14 tests) 93ms
+ Test Files  6 passed (6)
+      Tests  139 passed (139)
+   Duration  9.09s (transform 170ms, setup 0ms, collect 420ms, tests 3.09s, environment 1ms, prepare 405ms)
+
+==============================================================
+STEP 6  each file individually
+==============================================================
+schema          Tests 12 passed (12)
+checks          Tests 73 passed (73)
+constraints     Tests 18 passed (18)
+membership      Tests 10 passed (10)
+relationships   Tests 14 passed (14)
+seed            Tests 12 passed (12)
+
+==============================================================
+STEP 8  ORDER INDEPENDENCE  --sequence.shuffle.files=true
+==============================================================
+shuffle 1:  Tests 139 passed (139) | order: tests/relationships.test.ts tests/membership.test.ts tests/seed.test.ts tests/schema.test.ts tests/constraints.test.ts tests/checks.test.ts 
+shuffle 2:  Tests 139 passed (139) | order: tests/checks.test.ts tests/membership.test.ts tests/constraints.test.ts tests/seed.test.ts tests/relationships.test.ts tests/schema.test.ts 
+shuffle 3:  Tests 139 passed (139) | order: tests/checks.test.ts tests/seed.test.ts tests/relationships.test.ts tests/membership.test.ts tests/constraints.test.ts tests/schema.test.ts 
+shuffle 4:  Tests 139 passed (139) | order: tests/constraints.test.ts tests/checks.test.ts tests/membership.test.ts tests/seed.test.ts tests/schema.test.ts tests/relationships.test.ts 
+shuffle 5:  Tests 139 passed (139) | order: tests/relationships.test.ts tests/schema.test.ts tests/checks.test.ts tests/constraints.test.ts tests/seed.test.ts tests/membership.test.ts 
+
+==============================================================
+STEP 7  residue check — no stray rows survive the suite
+==============================================================
+$ npx tsx ./_residue.mts   (run immediately after the suite above)
+tables scanned: 28 (+ 1 exempt: RolePermission, composite PK, no id column)
+marker residue by table: {}
+stray C_test_* memberCodes: 0
+post-suite totals: {"members":"1000","memberships":"1000","payments":"952","paymentTotal":"934150000","refunds":"37","assignments":"350","sessions":"0","workoutPlans":"250"}
+expected (pristine seed): members=1000 memberships=1000 payments=952 paymentTotal=934150000 refunds=37 assignments=350 sessions=0 workoutPlans=250
+
+==============================================================
+NEGATIVE CONTROL — proof the guards actually fail a run
+==============================================================
+Absence of leaks proves nothing unless a leak would be caught, so the
+purge was temporarily disabled in constraints.test.ts and a deliberate
+leaking test added. Both changes were reverted afterwards; the reverted
+file is byte-identical to the committed one.
+
+(a) FULL SUITE with the deliberate leak — entry guard fires:
+Error: TEST ISOLATION VIOLATION at entry: a PREVIOUS test file did not clean up after itself. Leaked rows: Refund=2, Payment=2, TrainerAssignment=2, Membership=2, Member=13. Every test file must call purgeTestRows() in afterAll — see tests/helpers.ts.
+ Test Files  1 failed | 5 passed (6)
+      Tests  128 passed | 12 skipped (140)
+vitest exit code: 1
+
+(b) LEAKING FILE ALONE (nothing runs after it) — suite teardown guard fires:
+Error: TEST ISOLATION VIOLATION at suite teardown: test rows survived the run. Leaked rows: Refund=2, Payment=2, TrainerAssignment=2, Membership=2, Member=13. Every test file must call purgeTestRows() in afterAll — see tests/helpers.ts.
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+vitest exit code: 1  <- every test PASSED yet the run FAILED, which is the point
+
+==============================================================
+RESULT
+==============================================================
+Before fix: 135/136 cold, order-dependent.
+After fix:  139/139 in every run above — 3 cold-cache runs, 2 warm-cache
+runs, 6 files individually, 11 shuffled orderings, zero residue,
+typecheck clean. Both isolation guards demonstrated to fail a run.

@@ -6,12 +6,23 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { PrismaClient } from '@prisma/client';
-import { testDb, expectRejection, uid } from './helpers.js';
+import { testDb, expectRejection, uid, purgeTestRows, expectPristine } from './helpers.js';
 import { applyPragmas } from '../src/db/client.js';
 
 let db: PrismaClient;
-beforeAll(async () => { db = testDb(); await applyPragmas(db); });
-afterAll(async () => { await db.$disconnect(); });
+
+// Every transition test needs its own membership, so this file creates rows on
+// purpose and removes them at exit. See tests/helpers.ts for the contract.
+beforeAll(async () => {
+  db = testDb();
+  await applyPragmas(db);
+  await expectPristine(db, 'entry');
+});
+afterAll(async () => {
+  await purgeTestRows(db);
+  await expectPristine(db, 'exit');
+  await db.$disconnect();
+});
 
 async function freshMembership(state = 'ACTIVE') {
   const b = await db.branch.findFirstOrThrow();
@@ -133,7 +144,9 @@ describe('T-U-044 "expiring soon" is DERIVED, never stored (B-05, AC-19)', () =>
 
 describe('T-U-045 membership history is retained', () => {
   it('every SEEDED membership has at least a creation event', async () => {
-    // Scoped to seed rows: other test files create bare memberships on purpose.
+    // Scoped to seed rows because EARLIER TESTS IN THIS FILE create bare
+    // memberships to drive transitions. Cross-file contamination cannot reach
+    // here — the entry assertion in beforeAll would have failed first.
     const rows = await db.$queryRawUnsafe<{ n: bigint }[]>(`
       SELECT COUNT(*) AS n FROM "Membership" m
       WHERE m."id" NOT LIKE '%_test_%'

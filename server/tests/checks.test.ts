@@ -25,7 +25,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { PrismaClient, Prisma } from '@prisma/client';
-import { testDb, expectRejection, uid } from './helpers.js';
+import { testDb, expectRejection, uid, purgeTestRows, expectPristine } from './helpers.js';
 import { applyPragmas } from '../src/db/client.js';
 
 let db: PrismaClient;
@@ -300,6 +300,7 @@ const CASES: Case[] = [
 beforeAll(async () => {
   db = testDb();
   await applyPragmas(db);
+  await expectPristine(db, 'entry');
 
   // The seed creates no Session rows (nobody has logged in), so there is
   // nothing to clone. Create one legal row as the clone source.
@@ -326,6 +327,10 @@ beforeAll(async () => {
 
 afterAll(async () => {
   for (const fn of cleanup.reverse()) await fn();
+  // Backstop: the explicit cleanup above is bookkeeping and can fall behind a
+  // new fixture; the purge is derived from the id marker and cannot.
+  await purgeTestRows(db);
+  await expectPristine(db, 'exit');
   await db.$disconnect();
 });
 
