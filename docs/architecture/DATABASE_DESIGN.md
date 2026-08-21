@@ -450,13 +450,19 @@ Reports must state that the absolute claim cannot be proven, and report the prox
 
 > ⚠️ **DEVELOPMENT SEED DATA — NOT PRODUCTION DATA.**
 > Every name, email and phone number is fabricated. Emails use the RFC 2606 reserved
-> `.invalid` TLD and can never resolve. `passwordHash` is the literal placeholder
-> `DEV_SEED_NOT_A_REAL_HASH` — **not a usable credential**. `conditionCipher` values are
-> `DEV_SEED_PLACEHOLDER:` strings, **not encrypted data**. All three facts are asserted by
-> `T-U-062`.
+> `.invalid` TLD and can never resolve. `conditionCipher` values are `DEV_SEED_PLACEHOLDER:`
+> strings, **not encrypted data**. `T-U-062` asserts it.
+>
+> **`passwordHash` changed in Phase 4A.** It was the literal placeholder
+> `DEV_SEED_NOT_A_REAL_HASH`; it is now a **real Argon2id hash** of one documented development
+> password (`server/src/db/dev-credentials.ts`, `docs/security/AUTHENTICATION.md` §2). The
+> placeholder is gone — `T-U-062` asserts zero remain, that the stored value is an Argon2id
+> hash, that the plaintext appears in no column, and that pending accounts have a **null** hash.
 
 **Deterministic**: a fixed mulberry32 seed (`20260816`) and a fixed epoch mean repeated runs
-produce byte-identical data. `T-U-063` re-runs the seed and compares a content fingerprint.
+produce byte-identical data — **with one deliberate exception since Phase 4A: Argon2id hashes
+embed a random salt, so `passwordHash` differs between runs by design.** `T-U-063` fingerprints
+counts and totals rather than hashes, so the guarantee is unchanged where it is asserted.
 
 Scale — the ADR-012 🟦 **ENGINEERING VERIFICATION THRESHOLD** for a student/college project:
 

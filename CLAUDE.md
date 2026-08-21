@@ -18,6 +18,10 @@ and a working application — both obligations are real, and they are tracked se
    screenshots for UI, measured numbers for performance.
 5. **Do not redesign the homepage.** `reference/design/gym-management-homepage-2.html` is the
    visual source of truth.
+6. **Never store, log or return a credential.** Passwords are Argon2id-hashed and never leave
+   `platform/auth/password.ts`; session and activation tokens are stored only as SHA-256 hashes;
+   API responses are built from `PublicActor`, never from a Prisma row. **Medical data must never
+   reach a log sink** (`NFR-10`). See `docs/security/AUTHENTICATION.md`.
 
 ## Where things live
 
@@ -75,14 +79,16 @@ academic coverage.
 
 ## Implementation state — verify, never assume
 
-Measured on 2026-08-16; re-measure rather than trusting this table.
+Measured on 2026-08-21; re-measure rather than trusting this table.
 
 | Fact | Value | How to check |
 |---|---|---|
 | Entities | **29** | `grep -c '^model ' server/prisma/schema.prisma` |
-| Tests | **139 passing** | `cd server && npm test` |
+| Tests | **224 passing** (141 database + 83 authentication) | `cd server && npm test` |
 | Skills | **6** | `ls .claude/skills` |
-| Service / API / HTTP / frontend / auth code | **none** | `ls server/src` → only `db/` |
+| HTTP endpoints | **8**, all authentication | `docs/architecture/API_CONTRACTS.md` |
+| Authentication / authorisation | **implemented** (Phase 4A) — Argon2id, sessions, `AC-11` activation | `docs/security/AUTHENTICATION.md` |
+| Department service / API / frontend code | **none** | `ls server/src` → `db/`, `http/`, `platform/` only |
 | Mandatory academic diagrams | **0 of 11** (+ 0 of 1 written artefact) | `ls docs/diagrams` — both existing diagrams are enhancements |
 
 **Tests share one SQLite file.** A test that writes a row owns its removal: mint ids only via

@@ -5,14 +5,20 @@
  *
  *  - Every person, address, phone and email below is FABRICATED for testing.
  *    No real personal information appears anywhere in this file.
- *  - `passwordHash` values are the literal placeholder string
- *    `DEV_SEED_NOT_A_REAL_HASH`. They are NOT valid credentials and cannot be
- *    used to authenticate — password hashing arrives with auth in a later phase.
+ *  - `passwordHash` values are REAL Argon2id hashes (Phase 4A) of ONE
+ *    documented development password, `DEV_PASSWORD` below. It is committed on
+ *    purpose so the app is runnable, it is NOT a real personal credential, and
+ *    it must never exist outside a development database. Production accounts are
+ *    created `pending` with a null hash and set their own password via the
+ *    single-use activation link (`AC-11`).
  *  - `conditionCipher` values are placeholder text, NOT encrypted data.
  *    Real field encryption (NFR-21 / NFR-10) arrives with the service layer.
  *
  * Deterministic: a fixed PRNG seed and a fixed epoch mean repeated runs produce
- * byte-identical data. ADR-012's verification thresholds depend on this.
+ * byte-identical data — **with one deliberate exception: Argon2id password
+ * hashes embed a random salt, so `passwordHash` differs between runs by design.**
+ * `T-U-063` fingerprints counts and totals, not hashes, so determinism still
+ * holds where it is asserted. ADR-012's verification thresholds depend on this.
  *
  * Scale — ADR-012 ENGINEERING VERIFICATION THRESHOLD, student/college project:
  *   3 operating branches (+1 disabled, AC-12) · 1 000 members · 5 plans ·
@@ -22,6 +28,8 @@
 import { PrismaClient } from '@prisma/client';
 import { applyPragmas } from './client.js';
 import { makeRng, id, pick, intBetween, daysFromEpoch, SEED_EPOCH } from './ids.js';
+import { hashPassword } from '../platform/auth/password.js';
+import { DEV_PASSWORD } from './dev-credentials.js';
 
 const prisma = new PrismaClient();
 
@@ -32,7 +40,8 @@ const N_PLANS = 5;
 const ATTENDANCE_DAYS = 90;
 const N_EQUIPMENT_PER_BRANCH = 12;
 
-const DEV_HASH = 'DEV_SEED_NOT_A_REAL_HASH';
+/** The one demo member with a usable password, so ENH-01 login is exercisable. */
+const DEMO_MEMBER_INDEX = 0;
 
 const ROLES = [
   { key: 'receptionist', name: 'Receptionist' },
@@ -163,6 +172,12 @@ async function main(): Promise<void> {
     approvedByStaffId: string | null; approvedAt: Date | null; createdAt: Date; updatedAt: Date };
   const staff: StaffSeed[] = [];
   let sIdx = 0;
+  // Hashed ONCE and reused: Argon2id is deliberately expensive, and hashing the
+  // same dev password 18 times would add seconds for no benefit. Reusing one
+  // hash means the accounts share a salt, which is fine for identical
+  // fabricated dev credentials and is never done for real users (each
+  // activation calls hashPassword() separately).
+  const devPasswordHash = await hashPassword(DEV_PASSWORD);
   const addStaff = (roleKey: string, branchIdx: number | null, status: string): StaffSeed => {
     sIdx += 1;
     const row: StaffSeed = {
@@ -173,7 +188,8 @@ async function main(): Promise<void> {
       // Administrator is org-wide → null home branch (B-03 nullable is meaningful).
       homeBranchId: branchIdx === null ? null : branches[branchIdx]!.id,
       status,
-      passwordHash: status === 'active' ? DEV_HASH : null,
+      // A pending account has NO password — it cannot exist before activation.
+      passwordHash: status === 'active' ? devPasswordHash : null,
       approvedByStaffId: null, approvedAt: null,
       createdAt: SEED_EPOCH, updatedAt: SEED_EPOCH,
     };
@@ -233,7 +249,14 @@ async function main(): Promise<void> {
       phone: `+9190000${String(n).padStart(5, '0')}`,
       // ~4% have no home branch — exercises the nullable column (B-03).
       homeBranchId: rng() < 0.04 ? null : pick(rng, branches).id,
-      passwordHash: null,
+      /**
+       * ENH-01. Members are NOT activated: no acceptance criterion describes a
+       * member obtaining a password, and `Member` has no activation-token
+       * columns, so no member-activation flow was invented. Exactly ONE demo
+       * member carries the dev password so the member login path is exercisable
+       * end to end; the other 999 are null and cannot authenticate.
+       */
+      passwordHash: i === DEMO_MEMBER_INDEX ? devPasswordHash : null,
       createdAt: daysFromEpoch(-intBetween(rng, 30, 400)),
       updatedAt: SEED_EPOCH,
     };

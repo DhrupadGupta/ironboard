@@ -7,17 +7,30 @@
 
 **Coverage:** 25 non-functional requirements, each bound 1:1 to a functional requirement.
 
-**Status:** 🟡 **Phase 3 — database layer only.**
+**Status:** 🟡 **Phase 4A — database + authentication foundation.**
 
-⚠️ **0 of 25 NFRs are VERIFIED.** Phase 3 delivered database *support*; verification requires
-the service, API and measurement layers. Per the testing skill, an unexecuted test is
-`NOT RUN`, never `PASS`.
+⚠️ **0 of 25 NFRs are VERIFIED.** Phase 3 delivered database *support*; Phase 4A delivered the
+authentication *substrate* three security NFRs depend on. Neither is verification, which needs the
+department service/API layers and a measurement harness. Per the testing skill, an unexecuted test
+is `NOT RUN`, never `PASS`.
 
-| Metric | Phase 3 |
+| Metric | Phase 4A |
 |---|---|
 | NFRs with database support | 12 of 25 |
-| NFRs with an implementation (full stack) | **0** |
+| NFRs with **partial** implementation support from authentication | 3 (`NFR-10`, `NFR-11`, `NFR-21`) |
+| NFRs with a full-stack implementation | **0** |
 | NFRs **verified** | **0 / 25** |
+
+**What Phase 4A contributed to the three security NFRs — and what it did not:**
+
+| NFR | Contributed | Still missing | Status |
+|---|---|---|---|
+| `NFR-10` medical → authorised trainers | Medical data is **excluded from all logs** (dropped, not redacted — `T-A-046`); the Trainer role holds `medical:read` | ⚠️ **The requirement's actual demand** — access gated on a live `TrainerAssignment` for *that* member, not on the role. Plus field encryption. Medical endpoints do not exist | 🔴 **NOT VERIFIED** |
+| `NFR-11` only administrators approve staff | Deny-by-default `staff:approve`; all four non-admin staff roles **and** Member proven to receive 403 (`T-A-042`); unauthenticated receives 401 | `AC-11`'s own acceptance suite; the notification dispatcher | 🟡 **guard exercised, NOT VERIFIED** |
+| `NFR-21` payment data encrypted + restricted | Deny-by-default model exists; `payment:create` is Accounting-only in the matrix | Payment endpoints, **field encryption at rest** (`conditionCipher` and payment fields still hold placeholders) | 🔴 **NOT VERIFIED** |
+
+> **Authentication existing does not verify any NFR.** `T-A-042` proves a guard denies four roles;
+> it does not prove `NFR-11`, because `NFR-11` is verified only when `AC-11` passes.
 
 Database support delivered: `NFR-01` outbox (email off the critical path) · `NFR-02` CHECK
 constraints + uniqueness · `NFR-07`/`NFR-13` WAL + `synchronous = FULL` + no hard-delete path ·
@@ -179,7 +192,8 @@ All 25 pairings below are therefore **exact**, not reconstructed from reading or
 | **Note** | Says "**authorized** trainers", not "trainers". Requirement wording preserved verbatim above. |
 | **Interpretation (B-05 review)** | ⚠️ **Genuinely ambiguous — the source does not decide it.** *Reading A (role-based):* any user with the Trainer role, by parallel construction with `NFR-21` "authorized **staff**". *Reading B (per-member):* only trainers assigned to that member — supported because "authorized" would be redundant under Reading A. **Reading B is chosen** because it is a strict subset of A: implementing B satisfies the requirement under **both** readings, whereas implementing A fails if B was intended. See `docs/decisions/DEVIATIONS.md` §2. |
 | **Consequence** | Reading B needs a `TrainerAssignment` record that **no user story creates**. Minimum implementation: create it as a side effect of `AC-06` (a trainer assigning a workout plan is authorised for that member). Tracked as `ENH-20`, **IMPLIED-MANDATORY**. |
-| **Status** | ⬜ |
+| **Phase 4A** | Partial support only: medical data is **excluded from every log sink** — medical keys are dropped, not redacted, so their presence cannot be inferred from the log shape (`T-A-046`). The Trainer role holds `medical:read`. ⚠️ **The per-member `TrainerAssignment` gate — which is what the requirement actually demands — is NOT implemented**, and no medical endpoint exists |
+| **Status** | ⬜ NOT VERIFIED |
 
 ### NFR-11 — Security
 
@@ -192,7 +206,8 @@ All 25 pairings below are therefore **exact**, not reconstructed from reading or
 | **Verification** | Access-control test: all four non-admin roles are denied the approve action |
 | **Blocker** | `AMB-03` |
 | **Note** | The clearest, most directly testable NFR in `[LAB2]` — restates `US-11`'s own "so that" clause |
-| **Status** | ⬜ |
+| **Phase 4A** | 🟡 **Guard implemented and exercised, requirement NOT verified.** `POST /api/v1/staff/:id/approve` requires the `staff:approve` permission, held **only** by Administrator. `T-A-042` proves Receptionist, Trainer, Membership Manager, Accounting Executive **and** Member each receive `403`, and that an unauthenticated caller receives `401`. Verification waits on `AC-11`'s acceptance suite |
+| **Status** | 🟡 PARTIAL — not VERIFIED |
 
 ### NFR-12 — Scalability
 
@@ -316,7 +331,8 @@ All 25 pairings below are therefore **exact**, not reconstructed from reading or
 | **Verification** | Encryption-at-rest verification; access-control tests per role |
 | **Blocker** | `AMB-03`. Also: `AC-21` accepts **online** payment, implying a gateway that no source names |
 | **Note** | ⚠️ **Highest-risk NFR.** The `[EXP2]` handout's sample constraints demonstrate the expected pattern here (mask all but the last 4 digits of a card; log every payment-information change with IP, old/new value, timestamp) — but those are **handout examples, not Ironboard requirements**. `[LAB2]` produced no project-specific constraints (`INC-02`) |
-| **Status** | ⬜ |
+| **Phase 4A** | Partial support only: the deny-by-default RBAC model exists and `payment:create` / `invoice:*` / `refund:create` are Accounting-only in the matrix. ⚠️ **No payment endpoint exists and NO field encryption exists** — the "encrypted" half of this requirement is untouched |
+| **Status** | ⬜ NOT VERIFIED |
 
 ### NFR-22 — Reliability
 

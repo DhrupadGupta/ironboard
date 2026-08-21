@@ -15,11 +15,19 @@ its test are complete. Phase 3 delivered the **database support** they will rest
 constraints, indexes and deterministic seed data — nothing more. Service, API, UI and
 acceptance tests do not exist.
 
-| Layer | Phase 3 state |
+| Layer | State after Phase 4A |
 |---|---|
-| Database support | ✅ 29 entities, 36 CHECK constraints, 2 partial unique indexes, 7 triggers, 139 passing DB tests |
-| Service / API / UI | 🔴 Not started |
+| Database support | ✅ 29 entities, 36 CHECK constraints, 2 partial unique indexes, 7 triggers, 141 passing DB tests |
+| **Authentication foundation** | ✅ Argon2id, sessions, `AC-11` activation mechanism, 8 endpoints, 83 tests — **🟦 infrastructure, counts toward NO academic requirement** |
+| Department service / API / UI | 🔴 Not started — 0 of ~48 department endpoints |
 | Acceptance tests (`AC-01`…`AC-25`) | 🔴 **0 / 25 — none written, none passing** |
+
+⚠️ **`AC-11` is the only criterion Phase 4A touched, and it is PARTIAL — not covered.** Its
+activation mechanism is implemented and tested (`T-A-020`…`T-A-026`, `T-A-049`), but the criterion
+says "activate the account and **send login details**": the notification is *queued* and **no
+dispatcher exists**, so nothing is sent. `NFR-11`'s admin-only guard is exercised (`T-A-042`) but
+`NFR-11` is verified only when `AC-11` has a passing acceptance test. Detail:
+`docs/security/AUTHENTICATION.md` §8.
 
 Database support by criterion — *support, not verification*:
 
@@ -34,7 +42,7 @@ Database support by criterion — *support, not verification*:
 | `AC-07` | `ProgressEntry(weightKg, measurements)` |
 | `AC-08` | `SessionSlot(kind='personal_training')` + trainer index |
 | `AC-10` | `MedicalRestriction` (`ENH-03`) + `TrainerAssignment` (`ENH-20`) for `NFR-10` |
-| `AC-11` | `Staff.status` pending→active + activation-token columns (no password transmitted) |
+| `AC-11` | `Staff.status` pending→active + activation-token columns (no password transmitted) — **Phase 4A implemented the mechanism**: `POST /staff/:id/approve` (admin-only), single-use 24 h token, `POST /auth/activate` sets an Argon2id hash. **Still PARTIAL — nothing is sent** |
 | `AC-12` | `Branch` with `disabled` status; `SET NULL` on `homeBranchId` |
 | `AC-13` | `Equipment` (`ENH-04`) + `MaintenanceSchedule` |
 | `AC-15` | Cross-module reads; branch is not a partition (`B-03`) |
@@ -254,7 +262,8 @@ Homepage: `Dept / 03` · "Administration" · badge `5 stories` ·
 | **HP** | "Approve new staff accounts" (line 354) |
 | **Sub-behaviours** | `FR-SUB-10` send login details |
 | **Implementation interpretation** | ⚠️ The requirement wording above is **preserved verbatim and is not rewritten**. Implementation sends the sign-in URL, the login identifier and the assigned role (genuine "login details") **plus a single-use link to set a password**, rather than emailing a password. Classified **ENGINEERING SECURITY IMPROVEMENT / IMPLEMENTATION INTERPRETATION** — see `docs/decisions/DEVIATIONS.md` §1. No NFR constrains credential transport. Reversible if a literal reading is required. |
-| **Depends on** | Auth/identity system (`AMB-03`, `ASM-02`/`ASM-03`) |
+| **Depends on** | Auth/identity system (`AMB-03`, `ASM-02`/`ASM-03`) — ✅ **now exists** (Phase 4A) |
+| **Phase 4A status** | 🟡 **PARTIAL.** Implemented: staff self-registration (`ENH-06`), admin-only approval enforced by the `staff:approve` permission (`NFR-11`, `T-A-042`), a single-use time-limited activation link, password set via Argon2id, sessions revoked on password set. **Missing: the "send" half** — the notification is queued to `NotificationOutbox` and no dispatcher exists. **Not VERIFIED.** No `AC-11` acceptance suite exists yet |
 | **Gaps** | ⚠️ **Foundational but underspecified.** Implies staff self-registration (`ACT-08`), an account lifecycle (pending → active), a **rejection** path (`INC-01`), and role assignment at approval — none stated. Sending login details implies credential generation/delivery, which raises a security concern not addressed by any NFR |
 | **Impl / Test** | ⬜ / ⬜ |
 

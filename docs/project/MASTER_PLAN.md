@@ -630,7 +630,7 @@ Ordered so each phase unblocks the next. Course Policy Lab 9 forces design befor
 | **0** | Analysis & skills | ✅ Analysis docs, **6 skills**, CLAUDE.md | Done |
 | **1** | **Master plan** | ✅ This document + ADRs + phase status | Done |
 | **2** | Requirements & design | Problem statement, feasibility, process model, development plan; `DIA-01`–`DIA-12`, `DIA-16` | ✅ gate cleared — `B-03`, `B-04`, `B-05` all **RESOLVED** |
-| **3** | Foundation | Repo scaffold, Prisma schema + migrations, auth, RBAC, API skeleton, design-system primitives | ✅ **database subset COMPLETE**; auth / RBAC / API skeleton / design-system primitives remain (tracked as Phase 3b) |
+| **3** | Foundation | Repo scaffold, Prisma schema + migrations, auth, RBAC, API skeleton, design-system primitives | ✅ **database COMPLETE** (Phase 3) · ✅ **auth + API skeleton + RBAC-on-auth-surface COMPLETE** (Phase 4A) · 🔴 RBAC on the remaining endpoints and design-system primitives remain (Phase 4B) |
 | **4** | Department modules | `D01`→`D04`→`D02`→`D05`→`D03` (dependency order) | Phase 3 |
 | **5** | Frontend | Module screens on the design system | Phase 3 primitives |
 | **6** | Cross-cutting | Notifications, reporting, audit log, scheduler | Phase 4 |

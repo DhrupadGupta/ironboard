@@ -1,6 +1,6 @@
 # Ironboard — Session Handoff
 
-**Rewritten:** 2026-08-16, from the live repository rather than from the previous handoff.
+**Rewritten:** 2026-08-16 · **Updated for Phase 4A:** 2026-08-21, from the live repository.
 **Branch:** `claude/ironboard-handoff-review-0o2pag` ·
 **HEAD at time of writing:** `3292c8c` (this document is committed on top of it — run
 `git log -1` for the current SHA) ·
@@ -12,7 +12,7 @@ stacked on [#1](https://github.com/DhrupadGupta/ironboard/pull/1) (→ `main`)
 > `reference/experiments/`. Nothing in `reference/` may be modified, renamed or deleted.
 >
 > **This document describes implementation state. Verify it, do not trust it.** Every number
-> below was measured on 2026-08-16 with the command shown.
+> below was measured on 2026-08-21 with the command shown.
 
 ---
 
@@ -24,14 +24,16 @@ stacked on [#1](https://github.com/DhrupadGupta/ironboard/pull/1) (→ `main`)
 | CHECK constraints | **36** | `T-U-030`/`T-U-032` — one case per constraint, plus a drift guard |
 | Partial unique indexes | **2** | `Membership_one_active_per_member`, `TrainerAssignment_one_live_per_pair` |
 | Triggers | **7** | 3 append-only, 1 transition guard, 1 over-refund guard |
-| Tests | **139 passing** | `cd server && npm test` |
+| Tests | **224 passing** (141 database + 83 authentication) | `cd server && npm test` |
 | Typecheck | clean | `cd server && npm run typecheck` |
 | Project skills | **6** | `ls .claude/skills` |
-| Service / API / HTTP / frontend / auth code | **none** | `ls server/src` → only `db/` |
+| HTTP endpoints | **8**, all authentication | `docs/architecture/API_CONTRACTS.md` |
+| Department service / API / frontend code | **none** | `ls server/src` → `db/`, `http/`, `platform/` only |
 | Mandatory academic diagrams | **0 of 11** (+ 0 of 1 written artefact) | `ls docs/diagrams` — both diagrams present are enhancements |
 
-⚠️ **Numbers this document previously got wrong**, corrected here: "28 entities" (it is 29) and
-"136/136 tests" (it was 135/136 on a cold cache before the isolation fix; it is 139/139 now).
+⚠️ **Numbers this document previously got wrong**, corrected: "28 entities" (it is 29) and
+"136/136 tests" (it was 135/136 cold-cache before the isolation fix). Phase 4A then took the
+total to **224**.
 
 ---
 
@@ -39,10 +41,10 @@ stacked on [#1](https://github.com/DhrupadGupta/ironboard/pull/1) (→ `main`)
 
 | Field | Value |
 |---|---|
-| **Current phase** | **Phase 3 — Foundation / Database: COMPLETE.** Self-review passed **and** the corrected test suite passes. |
-| **Completed** | Phase 0 (analysis + 6 skills) · Phase 1 (master plan + 15 ADRs) · Phase 2 **architecture subset** · Phase 3 **database** |
-| **Not started** | Phase 2b (requirements docs + **all 11 mandatory diagrams + `DIA-05`**) · Phase 3b (auth, RBAC, API skeleton, design-system primitives) · Phases 4–9 |
-| **Overall** | 🟡 **Foundation only.** A database layer exists and is well tested. **No service, API, HTTP server, frontend, authentication, authorisation or UI.** **0 of 25** functional requirements delivered. **0 of 25** NFRs verified. **0 of 11** mandatory diagrams and **0 of 1** mandatory written artefact. |
+| **Current phase** | **Phase 4A — Authentication Foundation: COMPLETE.** 12-point self-review passed; 224/224 tests green. |
+| **Completed** | Phase 0 (analysis + 6 skills) · Phase 1 (master plan + 17 ADRs) · Phase 2 **architecture subset** · Phase 3 **database** · Phase 4A **authentication** |
+| **Not started** | Phase 2b (requirements docs + **all 11 mandatory diagrams + `DIA-05`**) · Phase 4B (department modules, RBAC on the rest, design-system primitives) · Phases 5–9 |
+| **Overall** | 🟡 **Foundation only.** Database + authentication exist and are well tested. **No department service, no department API, no frontend, no UI.** **0 of 25** functional requirements delivered. **0 of 25** NFRs verified. **0 of 11** mandatory diagrams and **0 of 1** mandatory written artefact. |
 
 | Phase | Name | Status |
 |---|---|---|
@@ -51,8 +53,8 @@ stacked on [#1](https://github.com/DhrupadGupta/ironboard/pull/1) (→ `main`)
 | 2 | Architecture ✅ / requirements & design diagrams 🔴 | 🟡 |
 | 2b | Requirements docs + 11 diagrams + `DIA-05` | 🔴 **unblocked** |
 | 3 | Foundation — database | ✅ |
-| 3b | Foundation — auth, RBAC, API skeleton, design-system primitives | 🔴 **unblocked** |
-| 4 | Department modules (service + API) | 🔴 |
+| 4A | Foundation — **authentication** | ✅ |
+| 4B | Department modules (service + API), RBAC on the rest, design-system primitives | 🔴 **unblocked** |
 | 5 | Frontend | 🔴 |
 | 6 | Cross-cutting | 🔴 |
 | 7 | Verification | 🔴 |
@@ -63,11 +65,11 @@ stacked on [#1](https://github.com/DhrupadGupta/ironboard/pull/1) (→ `main`)
 
 ## 3. What exists on disk
 
-### Database — the only working layer
+### Database
 
 SQLite (WAL, `synchronous = FULL`, `foreign_keys = ON`) via Prisma 6 + `better-sqlite3`
-(ADR-005). Integrity is enforced **by the database**, because there is no application code to
-enforce it: 36 CHECK constraints, 2 partial unique indexes, 7 triggers, FK actions declared per
+(ADR-005). Integrity is enforced **by the database**, because outside authentication there is
+still no application code to enforce it: 36 CHECK constraints, 2 partial unique indexes, 7 triggers, FK actions declared per
 relation (`Cascade` / `Restrict` / `SetNull`). Money is `INTEGER` minor units everywhere
 (`NFR-24`) — **no floats**. CHECK constraints are hand-injected into the migration because
 Prisma cannot express them; `T-U-032` guards against drift.
@@ -76,8 +78,13 @@ Prisma cannot express them; `T-U-032` guards against drift.
 server/
 ├── prisma/schema.prisma                  29 models
 ├── prisma/migrations/20260816135841_init/migration.sql
-├── src/db/{client,ids,seed,reset}.ts
-└── tests/{schema,checks,constraints,membership,relationships,seed}.test.ts + helpers, global-setup
+├── src/db/{client,ids,seed,reset,dev-credentials}.ts
+├── src/config.ts
+├── src/platform/auth/{password,tokens,errors,deps,session.service,activation.service,auth.service}.ts
+├── src/platform/{rbac/permissions,logging/logger}.ts
+├── src/http/{app,middleware,schemas}.ts
+├── tests/{schema,checks,constraints,membership,relationships,seed}.test.ts + helpers, global-setup
+└── tests/auth/{password,session,activation,login.api,security.api}.test.ts + helpers
 ```
 
 **Deterministic seed** (`ENH-16`, mulberry32, `SEED_EPOCH = 2026-08-16T00:00:00Z`): 4 branches
@@ -87,17 +94,19 @@ server/
 952 payments/receipts/invoices · 37 refunds · 989 ledger entries · 101 audit events ·
 100 outbox rows · 40 medical restrictions · 36 equipment · 350 trainer assignments ·
 250 workout plans · **0 sessions** · 44 members with `NULL homeBranchId`. Runs in ~1.3 s.
-Contains **no real personal data and no real credential** (`.invalid` domains,
-`DEV_SEED_NOT_A_REAL_HASH`, `DEV_SEED_PLACEHOLDER:`); `T-U-062` asserts all three.
+Contains **no real personal data** (`.invalid` domains, `DEV_SEED_PLACEHOLDER:` medical
+strings). Since Phase 4A `passwordHash` holds a **real Argon2id hash** of one documented
+development password — see `docs/security/AUTHENTICATION.md` §2. `T-U-062` asserts the
+placeholder is gone, the stored value is a hash, and the plaintext appears in no column.
 
 ### Everything else
 
 | Layer | State |
 |---|---|
 | Frontend | **Does not exist.** No `client/`, no React, no Vite. React+TS+Vite is a *decision*, not code |
-| Service / API | **Does not exist.** `API_ARCHITECTURE.md` is a design of 56 endpoints; zero are implemented |
-| Authentication | **Does not exist.** `Session` table has **0 rows**; `passwordHash` holds `DEV_SEED_NOT_A_REAL_HASH`. **No hashing algorithm implemented** (Argon2id is decided in ADR-006, not built) |
-| Authorization | **Does not exist as code.** 6 roles / 36 permissions / 60 mappings are seeded and `TrainerAssignment` exists for `NFR-10`; **no guard reads any of it** |
+| Service / API | **Authentication only.** **8 of ~56** designed endpoints exist, all of them auth (`docs/architecture/API_CONTRACTS.md`). **Zero department endpoints** — `API_ARCHITECTURE.md` remains a design for those |
+| Authentication | ✅ **IMPLEMENTED (Phase 4A).** Argon2id hashing, opaque server-side sessions with idle + absolute expiry and immediate revocation, `AC-11` single-use activation, login/logout for all six roles, uniform failure taxonomy (ADR-016), rate limiting, CSRF, redacting logger. 83 tests. **No schema change** (ADR-017). ⚠️ **Member activation is NOT implemented** — no schema support, no source requirement |
+| Authorization | 🟡 **Partial.** Deny-by-default `requirePermission()` exists and is wired to the auth surface — `staff:approve` proven to deny all five non-admin roles (`T-A-042`). The other ~48 endpoints and `NFR-10`'s per-member `TrainerAssignment` gate are **Phase 4B** |
 | Integrations | **None.** `NotificationOutbox` is the data shape only — no dispatcher, no email, no SMS (SMS is an explicit stub, `AMB-12`) |
 | Diagrams | Architecture + ER (`DIA-16`) exist — **both enhancements, both count 0** toward academic coverage |
 
@@ -151,9 +160,9 @@ API and UI work — not another decision.
 
 | # | Item |
 |---|---|
-| 1 | **No password hashing.** `passwordHash` holds a placeholder. A security hole if shipped as-is |
+| 1 | ~~No password hashing~~ ✅ **CLOSED in Phase 4A** — Argon2id (ADR-006), documented dev credential, placeholder eliminated |
 | 2 | **No field encryption.** `MedicalRestriction.conditionCipher` holds placeholders, **not ciphertext**. `NFR-21`/`NFR-10` need real encryption |
-| 3 | **Seed is anchored to a fixed epoch (2026-08-16).** Determinism was chosen over relevance, so "expiring soon" fixtures drift as wall-clock time advances. **Phase 4 report code should inject a clock**, never call `new Date()` directly |
+| 3 | **Seed is anchored to a fixed epoch (2026-08-16).** Determinism was chosen over relevance, so "expiring soon" fixtures drift as wall-clock time advances. ✅ **Partly addressed:** Phase 4A injects the clock through `AuthDeps.now` (`deps.ts`) rather than calling `new Date()`, and every expiry test moves that clock instead of sleeping. Phase 4B report code must do the same |
 | 4 | **Prisma discards SQLite trigger messages** — `SQLITE_CONSTRAINT_TRIGGER` (1811) → generic P2003 "Foreign key constraint violated". **The service layer must never branch on Prisma message text** for trigger-enforced rules. Tests assert both layers |
 | 5 | `MembershipPlan.accessRules` shape is undecided, and two acceptance criteria depend on it |
 | 6 | ER diagram aspect ratio 2.56 exceeds the 2.5 guideline — accepted deviation, recorded |
@@ -211,14 +220,18 @@ mandatory diagram set is **0 of 12 delivered** and is the largest outstanding ac
 obligation, and nothing blocks it. `B-01`–`B-05` are resolved, so the diagrams can be drawn
 against the decisions the schema already implements.
 
-**If the user prioritises the working application instead,** the equivalent single action is:
-**Phase 3b — implement password hashing (Argon2id, ADR-006) and the session issue/revoke path**,
-because every RBAC guard and every service-layer test depends on an authenticated subject. Then
-Phase 4 in dependency order **D01 → D04 → D02 → D05 → D03**, starting with member registration
-(`US-01`/`AC-01`/`FR-REC-01`) plus its `ENH-19` membership-creation path.
+**If the user prioritises the working application instead,** the next action is **Phase 4B —
+department modules** in dependency order **D01 → D04 → D02 → D05 → D03**, starting with member
+registration (`US-01`/`AC-01`/`FR-REC-01`) plus its `ENH-19` membership-creation path. The
+authenticated subject every service test needs now exists (Phase 4A), so nothing blocks this.
+**Every new route must declare a permission** (ADR-007) — a route with no declaration is a bug.
+
+**One decision is owed by the requirement owner:** member activation. `Member` has no activation
+columns and no acceptance criterion describes a member obtaining a password, so it was **not**
+invented. See `docs/security/AUTHENTICATION.md` §1.
 
 **This is the user's call, not an assumption to make.** What must *not* happen is re-litigating
-`B-01`/`B-02` — they are decided, and the database is built on them.
+`B-01`/`B-02` — they are decided, and the database and auth layer are built on them.
 
 ---
 
@@ -234,9 +247,10 @@ Phase 4 in dependency order **D01 → D04 → D02 → D05 → D03**, starting wi
 | 6 | `docs/architecture/DATABASE_DESIGN.md` | What the database does and does **not** guarantee; the test-isolation contract |
 | 7 | `docs/requirements/LAB1_TRACEABILITY_MATRIX.md` + `LAB2_NFR_TRACEABILITY.md` | Requirement coverage |
 | 8 | `docs/project/MANDATORY_DIAGRAM_COVERAGE.md` | **11 diagrams + 1 written artefact** — do not miscount |
-| 9 | `docs/architecture/API_ARCHITECTURE.md` + `SECURITY_ARCHITECTURE.md` | The design Phase 3b/4 implements against |
-| 10 | `.claude/skills/*/SKILL.md` | The six skills governing how work is done |
-| 11 | `reference/` | **The authority.** Re-verify every requirement claim. READ-ONLY |
+| 9 | `docs/security/AUTHENTICATION.md` + `ROLE_PERMISSION_MATRIX.md` + `docs/architecture/API_CONTRACTS.md` | **What Phase 4A actually built**, and the 8 endpoints that exist |
+| 10 | `docs/architecture/API_ARCHITECTURE.md` + `SECURITY_ARCHITECTURE.md` | The design Phase 4B implements against |
+| 11 | `.claude/skills/*/SKILL.md` | The six skills governing how work is done |
+| 12 | `reference/` | **The authority.** Re-verify every requirement claim. READ-ONLY |
 
 `docs/project/REQUIREMENT_GAP_ANALYSIS.md` and `REFERENCE_ANALYSIS.md` remain valuable as the
 **original** analysis, but §2, §3 and §9 of the gap analysis carry status banners: several of

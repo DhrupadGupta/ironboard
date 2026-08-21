@@ -1,9 +1,10 @@
 # Ironboard — Architectural Decision Records
 
 **Phase:** 1 — Master Plan · **Date:** 2026-08-16 · **Last reconciled with the implementation:**
-2026-08-16 · **Status:** Decided. **The database layer (ADR-005, ADR-011, ADR-013, ADR-014) is
-implemented and verified in Phase 3.** Every other ADR remains a design decision with no code
-behind it.
+2026-08-21 · **Status:** Decided. **Implemented and verified: the database layer (ADR-005, ADR-011,
+ADR-013, ADR-014) in Phase 3, and authentication (ADR-006, ADR-016, ADR-017, plus ADR-007 on the
+auth surface only) in Phase 4A.** ADR-001–004, 008–010 and 012 remain design decisions with no code
+behind them.
 
 Each ADR states context, decision, alternatives, consequences, and the **requirement that
 drives it**. Where a decision rests on an assumption rather than a source document, the `ASM`
@@ -26,6 +27,8 @@ or `B` ID is named — no assumption is presented as a requirement.
 | [013](#adr-013) | ~~Four-state membership machine~~ | ❌ **Superseded by B-05** (three states) |
 | [014](#adr-014) | ~~Branch as a NOT NULL scoping column~~ | ❌ **Superseded by B-03** (nullable homeBranchId) |
 | [015](#adr-015) | Member role is an enhancement, not academic coverage | Accepted |
+| [016](#adr-016) | **One response for every authentication failure** | ✅ Accepted — implemented in Phase 4A |
+| [017](#adr-017) | **Sliding session expiry on the existing `Session` columns** | ✅ Accepted — implemented in Phase 4A |
 
 ---
 
@@ -386,6 +389,92 @@ entirely invented; no source constrains them. ⚠️ Roughly doubles the UI surf
 after the mandatory 25 are functional.
 
 **Drives:** `B-01`, `ACT-06`, `ENH-01`, `R-19`.
+
+---
+
+## ADR-016 — One response for every authentication failure {#adr-016}
+
+**Status: ACCEPTED — implemented in Phase 4A.**
+
+**Context.** The login path can fail for five internally distinct reasons: unknown email, wrong
+password, no password set, account `pending`, account `disabled`. Reporting them accurately is the
+obvious and helpful thing to do, and it is wrong. SECURITY_ARCHITECTURE §6 already required an
+"identical response for unknown user vs wrong password"; the pending and disabled cases are the
+same problem wearing different clothes. "This account is awaiting approval" confirms the address
+belongs to a real employee, which is precisely the enumeration the rule exists to prevent.
+
+**Decision.** Every credential failure returns **one** status, code, message and body shape:
+`401 { error: { code: "INVALID_CREDENTIALS", message: "Invalid email or password." } }`. The
+internal reason is carried on the exception, written to the server log, and **never serialised**.
+
+The same collapse applies to two neighbouring surfaces:
+
+- **Sessions** — missing, unknown, expired and revoked all return one `SESSION_INVALID`.
+- **Activation** — unknown, expired and already-used all return one `ACTIVATION_INVALID`.
+- **Self-registration** — a duplicate address returns the same `202` as a new one, and never
+  modifies the existing account.
+
+Two non-body channels are closed alongside it, because a uniform body alone is theatre:
+
+1. **Timing.** An unknown account would return in ~0 ms against ~50 ms for a real Argon2id verify.
+   `verifyDummy()` spends equivalent work on a nonexistent subject, and the password is verified
+   **before** account state is judged so `pending`/`disabled` cost the same as `active`.
+2. **Cookies.** A failed login sets no cookie at all, so the presence of `Set-Cookie` cannot be
+   used as an oracle.
+
+**Alternatives.** *Specific messages* — better UX, but hands an attacker a staff directory.
+*Specific messages only for authenticated callers* — no help, since login is unauthenticated by
+definition. *Generic body, specific error code* — a machine-readable oracle is still an oracle.
+
+**Consequences.** ✅ Account enumeration is closed across body, timing and headers.
+✅ `T-A-040` can assert byte-identical responses, which makes the property testable rather than
+aspirational. ⚠️ **Support cost:** a genuinely locked-out employee sees the same message as a typo,
+so recovery must come from the admin surface, not from the login form. ⚠️ Operators depend on the
+log to diagnose, which makes the log's redaction rules load-bearing.
+
+**Drives:** `AMB-03`, `NFR-11`, `T-A-040`, `T-A-047`.
+
+---
+
+## ADR-017 — Sliding session expiry on the existing `Session` columns {#adr-017}
+
+**Status: ACCEPTED — implemented in Phase 4A. No migration required.**
+
+**Context.** SECURITY_ARCHITECTURE §2 requires session expiry to be "absolute + idle, both stored
+server-side". The Phase 3 `Session` table has `createdAt`, `expiresAt` and `revokedAt` — but **no
+`lastSeenAt`**, which is the column an idle timeout is normally computed from. The obvious move is
+a migration.
+
+**Decision.** Do not migrate. Express both limits with the columns that exist:
+
+```
+expiresAt = min(now + idleTtl, createdAt + absoluteTtl)
+```
+
+`expiresAt` slides forward on each successful validation, and the `createdAt + absoluteTtl` term is
+a ceiling that sliding can never pass. A session therefore dies after `idleTtl` of inactivity, and
+dies at the absolute cap however heavily it is used — which is exactly the required behaviour.
+
+Two supporting choices:
+
+- `expiresAt` is written **only when the value actually changes**, so a burst of requests inside one
+  millisecond is not a burst of writes on a single-writer database.
+- An expired session is **revoked in place, not deleted**, so the row survives as audit evidence
+  (`ENH-13`).
+
+**Alternatives.** *Add `lastSeenAt`* — a migration, an ER-diagram update and a schema-drift risk, to
+store a value that is derivable. *Idle only* — a stolen cookie kept warm never expires.
+*Absolute only* — an unattended workstation stays signed in for the full window.
+
+**Consequences.** ✅ Phase 3's schema, migration and 141 database tests are untouched — the auth
+layer added **zero** schema change. ✅ Expiry is testable by moving an injected clock rather than by
+sleeping (`T-A-013`, `T-A-014`). ⚠️ There is no "last seen" value available for reporting, because
+`expiresAt` conflates it with the deadline; if a session-activity report is ever required, that is
+when the column earns its migration. ⚠️ Both TTLs (30 min idle, 12 h absolute) are `ASM` values —
+**neither is sourced**, and the `[EXP2]` handout's 10-second logout is a sample about a different
+system (`INC-02`).
+
+**Drives:** ADR-006, `AC-11`, `AC-17`, `ENH-15`, `T-A-013`, `T-A-014`.
 
 ---
 

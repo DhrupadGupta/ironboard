@@ -9,6 +9,7 @@ import { resolve } from 'node:path';
 import { PrismaClient } from '@prisma/client';
 import { testDb, uid, findTestRows, purgeTestRows, expectPristine } from './helpers.js';
 import { applyPragmas } from '../src/db/client.js';
+import { DEV_PASSWORD } from '../src/db/dev-credentials.js';
 
 const serverRoot = resolve(import.meta.dirname, '..');
 let db: PrismaClient;
@@ -88,13 +89,46 @@ describe('T-U-061 seed populates every entity the phase requires', () => {
 });
 
 describe('T-U-062 DEVELOPMENT SEED DATA is clearly not production data', () => {
-  it('contains no real credential — only the placeholder marker', async () => {
-    const staff = await db.staff.findMany({ select: { passwordHash: true } });
+  /**
+   * Phase 4A replaced the `DEV_SEED_NOT_A_REAL_HASH` placeholder with real
+   * Argon2id hashes of ONE documented development password. The assertion
+   * therefore changed shape but not strength — it is now stronger, because it
+   * proves the stored value is a *hash* and that the plaintext is absent.
+   */
+  it('stores only Argon2id hashes — never a plaintext password', async () => {
+    const staff = await db.staff.findMany({ select: { passwordHash: true, status: true } });
     for (const s of staff) {
-      if (s.passwordHash !== null) expect(s.passwordHash).toBe('DEV_SEED_NOT_A_REAL_HASH');
+      if (s.status === 'pending') {
+        // A pending account cannot have a password: it has never been activated.
+        expect(s.passwordHash).toBeNull();
+      } else {
+        expect(s.passwordHash).toMatch(/^\$argon2id\$/);
+        expect(s.passwordHash).not.toContain(DEV_PASSWORD);
+      }
     }
-    const members = await db.member.findMany({ select: { passwordHash: true } });
-    expect(members.every((m) => m.passwordHash === null)).toBe(true);
+    // The old placeholder must be gone from the database entirely.
+    expect(await db.staff.count({ where: { passwordHash: 'DEV_SEED_NOT_A_REAL_HASH' } })).toBe(0);
+  });
+
+  it('activates exactly one demo member (ENH-01) and no others', async () => {
+    // ENH-01: no acceptance criterion gives a member a password, and Member has
+    // no activation columns, so exactly one demo account exists to exercise the
+    // login path. The other 999 cannot authenticate at all.
+    const withPassword = await db.member.count({ where: { NOT: { passwordHash: null } } });
+    expect(withPassword).toBe(1);
+    expect(await db.member.count({ where: { passwordHash: null } })).toBe(999);
+    const demo = await db.member.findFirstOrThrow({ where: { NOT: { passwordHash: null } } });
+    expect(demo.passwordHash).toMatch(/^\$argon2id\$/);
+  });
+
+  it('the documented dev password appears in no column of any identity table', async () => {
+    // Belt-and-braces against a plaintext leak into an unexpected column.
+    const rows = await db.$queryRawUnsafe<{ n: bigint }[]>(`
+      SELECT (SELECT COUNT(*) FROM "Staff"  WHERE "passwordHash" LIKE '%' || ? || '%')
+           + (SELECT COUNT(*) FROM "Member" WHERE "passwordHash" LIKE '%' || ? || '%')
+           + (SELECT COUNT(*) FROM "Staff"  WHERE "fullName" = ? OR "email" = ?) AS n;`,
+      DEV_PASSWORD, DEV_PASSWORD, DEV_PASSWORD, DEV_PASSWORD);
+    expect(Number(rows[0]?.n)).toBe(0);
   });
 
   it('uses only reserved, non-routable example domains', async () => {
