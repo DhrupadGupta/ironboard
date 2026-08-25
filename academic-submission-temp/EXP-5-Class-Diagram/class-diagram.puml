@@ -1,0 +1,469 @@
+@startuml
+'==============================================================
+' TEMPORARY ACADEMIC SUBMISSION ARTIFACT
+' Experiment No. 5 - Class Diagram
+' Case Study : IRONBOARD - Gym Management System
+' Source     : reference/experiments/EXP-5-CLASS.docx
+' Classes selected using the six class-selection characteristics
+' (retained information, needed services, multiple attributes,
+'  common attributes, common operations, essential requirements)
+' NOT part of the Ironboard production architecture.
+'==============================================================
+
+title IRONBOARD - Gym Management System\nEXPERIMENT 5 : Class Diagram (Conceptual Software Classes, Attributes, Operations and Relationships)
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 14
+skinparam TitleFontSize 20
+skinparam TitleFontStyle bold
+skinparam linetype polyline
+skinparam nodesep 45
+skinparam ranksep 60
+skinparam ArrowColor #33475B
+skinparam ArrowFontSize 13
+skinparam ArrowFontColor #33475B
+skinparam ClassFontSize 15
+skinparam ClassFontStyle bold
+skinparam ClassAttributeFontSize 13
+skinparam ClassBorderColor #33475B
+skinparam ClassBackgroundColor #FDFDFD
+skinparam ClassBorderThickness 1
+skinparam PackageBorderColor #8895A7
+skinparam PackageFontSize 15
+skinparam PackageFontStyle bold
+skinparam PackageBackgroundColor #FFFFFF
+hide circle
+hide empty members
+
+' ============================================================
+' 1. PEOPLE AND ACCESS  (generalization hierarchy)
+' ============================================================
+' Grouping below is by department/concern; 'together' is a layout aid only
+' and carries no UML semantics.
+
+  abstract class Person {
+    - personId : String
+    - name : String
+    - email : String
+    - phone : String
+    - dateOfBirth : Date
+    - address : String
+    --
+    + updateContactDetails(email, phone) : void
+    + getProfile() : Person
+    + {abstract} getRole() : String
+  }
+
+  class UserAccount {
+    - accountId : String
+    - username : String
+    - passwordHash : String
+    - role : String
+    - status : String
+    - lastLogin : DateTime
+    --
+    + login(username, password) : boolean
+    + logout() : void
+    + approve(approvedBy : Administrator) : void
+    + deactivate() : void
+    + isAuthorisedFor(action : String) : boolean
+  }
+
+  class Member {
+    - memberId : String
+    - joinDate : Date
+    - emergencyContact : String
+    - status : String
+    --
+    + register() : String
+    + verifyDetails() : boolean
+    + checkIn(branch : Branch) : AttendanceRecord
+    + getActiveMembership() : Membership
+    + getAttendanceSummary(from : Date, to : Date) : int
+    + hasMedicalRestriction() : boolean
+  }
+
+  abstract class Staff {
+    - staffId : String
+    - department : String
+    - designation : String
+    - dateOfJoining : Date
+    - accountStatus : String
+    --
+    + getAssignedBranch() : Branch
+    + {abstract} getRole() : String
+  }
+
+  class Receptionist {
+    - counterNo : String
+    - shift : String
+    --
+    + registerMember(details) : Member
+    + verifyMemberDetails(memberId) : boolean
+    + scheduleTrialSession(prospect, slot) : TrialSession
+    + printReceipt(payment : Payment) : Receipt
+    + checkMemberAttendance(date : Date) : AttendanceRecord[]
+    + getRole() : String
+  }
+
+  class Trainer {
+    - specialisation : String
+    - certification : String
+    - availabilitySlots : String
+    --
+    + assignWorkoutPlan(member, plan) : void
+    + recordProgress(member, weight, measurements) : ProgressRecord
+    + schedulePersonalSession(member, dateTime) : TrainingSession
+    + updateExerciseRoutine(plan, exercise) : void
+    + viewMedicalRestrictions(member) : MedicalRecord
+    + getRole() : String
+  }
+
+  class MembershipManager {
+    - managerId : String
+    --
+    + createMembershipPlan(details) : MembershipPlan
+    + renewMembership(membership) : void
+    + cancelMembership(membership, reason) : void
+    + sendRenewalReminder(membership) : Notification
+    + trackMembershipStatus(status : String) : Membership[]
+    + getRole() : String
+  }
+
+  class AccountingExecutive {
+    - employeeCode : String
+    --
+    + collectPayment(membership, amount, mode) : Payment
+    + generateInvoice(payment) : Invoice
+    + generateRevenueReport(from : Date, to : Date) : RevenueReport
+    + processRefund(payment, reason) : Refund
+    + trackOverduePayments() : Payment[]
+    + getRole() : String
+  }
+
+  class Administrator {
+    - adminLevel : String
+    --
+    + approveStaffAccount(account : UserAccount) : void
+    + manageBranch(branch : Branch, action : String) : void
+    + setMaintenanceSchedule(equipment, interval) : MaintenanceSchedule
+    + monitorDailyAttendance(date : Date) : AttendanceRecord[]
+    + monitorDepartmentActivity() : ActivityLog[]
+    + getRole() : String
+  }
+
+  Person <|-- Member
+  Person <|-- Staff
+  Staff <|-- Receptionist
+  Staff <|-- Trainer
+  Staff <|-- MembershipManager
+  Staff <|-- AccountingExecutive
+  Staff <|-- Administrator
+
+
+' ============================================================
+' 2. MEMBERSHIP LIFECYCLE
+' ============================================================
+together {
+
+  class MembershipPlan {
+    - planId : String
+    - planName : String
+    - price : Decimal
+    - durationInMonths : int
+    - accessRules : String
+    - isPublished : boolean
+    --
+    + publish() : void
+    + updatePlan(price, duration, rules) : void
+    + calculateExpiryDate(startDate : Date) : Date
+    + isAvailable() : boolean
+  }
+
+  class Membership {
+    - membershipId : String
+    - startDate : Date
+    - expiryDate : Date
+    - status : String
+    - amountDue : Decimal
+    --
+    + activate() : void
+    + renew(months : int) : void
+    + cancel(reason : String) : void
+    + isExpiringWithin(days : int) : boolean
+    + getStatus() : String
+    + hasOutstandingDue() : boolean
+  }
+
+  class Notification {
+    - notificationId : String
+    - type : String
+    - channel : String
+    - message : String
+    - sentOn : DateTime
+    - deliveryStatus : String
+    --
+    + send() : boolean
+    + resend() : boolean
+    + isDelivered() : boolean
+  }
+
+  MembershipPlan "1" -- "0..*" Membership : chosen in >
+}
+
+' ============================================================
+' 3. TRAINING AND PROGRESS
+' ============================================================
+together {
+
+  class MedicalRecord {
+    - recordId : String
+    - conditions : String
+    - restrictions : String
+    - lastUpdated : Date
+    --
+    + addRestriction(text : String) : void
+    + hasRestriction() : boolean
+    + getAlertMessage() : String
+  }
+
+  class WorkoutPlan {
+    - planId : String
+    - title : String
+    - goal : String
+    - createdOn : Date
+    - status : String
+    --
+    + addExercise(exercise : Exercise) : void
+    + removeExercise(exerciseId : String) : void
+    + updateRoutine() : void
+    + getTotalDuration() : int
+  }
+
+  class Exercise {
+    - exerciseId : String
+    - name : String
+    - sets : int
+    - reps : int
+    - weight : Decimal
+    - restInterval : int
+    --
+    + updateSetsAndReps(sets : int, reps : int) : void
+    + getVolume() : Decimal
+  }
+
+  class ProgressRecord {
+    - recordId : String
+    - recordedOn : Date
+    - weight : Decimal
+    - bodyFatPercent : Decimal
+    - measurements : String
+    - remarks : String
+    --
+    + saveRecord() : void
+    + compareWith(previous : ProgressRecord) : String
+    + isTargetAchieved() : boolean
+  }
+
+  class TrialSession {
+    - trialId : String
+    - prospectName : String
+    - prospectContact : String
+    - slot : DateTime
+    - status : String
+    --
+    + book() : boolean
+    + isSlotAvailable(slot : DateTime) : boolean
+    + sendConfirmation() : Notification
+    + convertToMember() : Member
+  }
+
+  class TrainingSession {
+    - sessionId : String
+    - scheduledOn : DateTime
+    - durationInMinutes : int
+    - status : String
+    --
+    + schedule() : boolean
+    + reschedule(newSlot : DateTime) : void
+    + markAttended() : void
+    + cancel() : void
+  }
+
+  WorkoutPlan "1" *-- "1..*" Exercise : consists of >
+}
+
+' ============================================================
+' 4. BILLING AND ACCOUNTS
+' ============================================================
+together {
+
+  class Payment {
+    - paymentId : String
+    - amount : Decimal
+    - mode : String
+    - paidOn : DateTime
+    - status : String
+    - dueDate : Date
+    --
+    + collect() : boolean
+    + isOverdue() : boolean
+    + clearBalance() : void
+    + getPaymentDetails() : String
+  }
+
+  class Invoice {
+    - invoiceId : String
+    - issuedOn : Date
+    - totalAmount : Decimal
+    - taxAmount : Decimal
+    - pdfPath : String
+    --
+    + generatePdf() : String
+    + emailToMember() : boolean
+  }
+
+  class Receipt {
+    - receiptId : String
+    - printedOn : DateTime
+    - amount : Decimal
+    --
+    + print() : void
+  }
+
+  class Refund {
+    - refundId : String
+    - amount : Decimal
+    - reason : String
+    - approvedBy : String
+    - processedOn : Date
+    --
+    + process() : boolean
+    + logTransaction() : void
+  }
+
+  class RevenueReport {
+    - reportId : String
+    - fromDate : Date
+    - toDate : Date
+    - totalIncome : Decimal
+    - totalRefunds : Decimal
+    - pendingAmount : Decimal
+    --
+    + generate() : void
+    + getNetRevenue() : Decimal
+    + exportReport(format : String) : String
+  }
+
+  Payment "1" -- "0..1" Invoice : billed by >
+  Payment "1" -- "0..1" Receipt : acknowledged by >
+  Payment "1" -- "0..1" Refund : reversed by >
+}
+
+' ============================================================
+' 5. BRANCH OPERATIONS
+' ============================================================
+together {
+
+  class Branch {
+    - branchId : String
+    - branchName : String
+    - address : String
+    - contactNo : String
+    - openingHours : String
+    - isActive : boolean
+    --
+    + addBranch() : void
+    + updateBranch() : void
+    + disableBranch() : void
+    + getDailyFootfall(date : Date) : int
+  }
+
+  class AttendanceRecord {
+    - recordId : String
+    - visitDate : Date
+    - checkInTime : DateTime
+    - checkOutTime : DateTime
+    --
+    + recordCheckIn() : void
+    + recordCheckOut() : void
+    + getVisitDuration() : int
+  }
+
+  class Equipment {
+    - equipmentId : String
+    - name : String
+    - purchaseDate : Date
+    - status : String
+    --
+    + markInMaintenance() : void
+    + markOperational() : void
+    + isOperational() : boolean
+  }
+
+  class MaintenanceSchedule {
+    - scheduleId : String
+    - intervalInMonths : int
+    - lastServicedOn : Date
+    - nextServiceOn : Date
+    --
+    + setSchedule(interval : int) : void
+    + isServiceDue() : boolean
+    + sendServiceReminder() : Notification
+  }
+
+  class ActivityLog {
+    - logId : String
+    - department : String
+    - action : String
+    - performedBy : String
+    - timestamp : DateTime
+    --
+    + record() : void
+    + getDepartmentSummary(department : String) : String
+  }
+
+  Equipment "1" *-- "0..*" MaintenanceSchedule : serviced as per >
+}
+
+' ============================================================
+' RELATIONSHIPS ACROSS THE SYSTEM (with multiplicities)
+' ============================================================
+Person "1" *-- "1" UserAccount : authenticated by >
+Administrator "1" -- "0..*" UserAccount : approves >
+
+Branch "1" -- "0..*" Member : enrolled at >
+Branch "1" -- "1..*" Staff : employs >
+Branch "1" -- "0..*" Equipment : houses >
+
+Member "1" -- "1..*" Membership : holds >
+Member "1" *-- "0..1" MedicalRecord : described by >
+Member "1" -- "0..*" AttendanceRecord : generates >
+Member "1" -- "0..*" WorkoutPlan : follows >
+Member "1" -- "0..*" ProgressRecord : measured by >
+Member "1" -- "0..*" TrainingSession : attends >
+Member "1" -- "0..*" Notification : receives >
+
+MembershipManager "1" -- "0..*" MembershipPlan : defines >
+Membership "1" -- "1..*" Payment : paid through >
+
+Receptionist "1" -- "0..*" TrialSession : schedules >
+Trainer "1" -- "0..*" WorkoutPlan : prepares >
+Trainer "1" -- "0..*" TrainingSession : conducts >
+Trainer "1" -- "0..*" ProgressRecord : records >
+
+AccountingExecutive "1" -- "0..*" Payment : collects >
+AccountingExecutive "1" -- "0..*" RevenueReport : generates >
+MaintenanceSchedule "0..*" -- "1" Administrator : < plans
+ActivityLog "0..*" -- "1" Administrator : < monitors
+
+legend bottom
+  <b>Notation</b>
+  Box with three compartments = Class (name / attributes / operations)  |  <b>-</b> private, <b>+</b> public
+  Hollow triangle arrow = Generalization (inheritance)  |  Filled diamond = Composition  |  Plain line = Association
+  Numbers at line ends = Multiplicity  |  <i>Italic class name</i> = Abstract class
+end legend
+
+@enduml

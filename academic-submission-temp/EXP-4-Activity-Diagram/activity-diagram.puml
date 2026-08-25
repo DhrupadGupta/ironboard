@@ -1,0 +1,191 @@
+@startuml
+'==============================================================
+' TEMPORARY ACADEMIC SUBMISSION ARTIFACT
+' Experiment No. 4 - Activity Diagram
+' Case Study : IRONBOARD - Gym Management System
+' Source     : reference/experiments/EXP-4-ACTIVITY.docx
+' NOT part of the Ironboard production architecture.
+'==============================================================
+
+title IRONBOARD - Gym Management System\nEXPERIMENT 4 : Activity Diagram - Member Enrolment, Training and Renewal Workflow
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 15
+skinparam TitleFontSize 20
+skinparam TitleFontStyle bold
+skinparam ArrowColor #33475B
+skinparam ArrowFontSize 13
+skinparam ArrowFontColor #7A4B0C
+skinparam ActivityBorderColor #33475B
+skinparam ActivityBackgroundColor #FDFDFD
+skinparam ActivityBorderThickness 1
+skinparam ActivityDiamondBorderColor #33475B
+skinparam ActivityDiamondBackgroundColor #FFF6E5
+skinparam ActivityDiamondFontSize 14
+skinparam SwimlaneTitleFontSize 17
+skinparam SwimlaneTitleFontStyle bold
+skinparam SwimlaneBorderColor #8895A7
+skinparam SwimlaneWidth 240
+skinparam NoteBackgroundColor #FFFDF0
+skinparam NoteBorderColor #B8A369
+skinparam partitionBorderColor #33475B
+
+'--- Swimlanes = the ACTORS who perform the activities (EXP-4, Procedure step 2)
+|#F4F7FA|Prospect / Member|
+|#EAF2FB|Reception|
+|#EAF7EE|Membership Management|
+|#FDF1F4|Accounting|
+|#F5F0FB|Trainer|
+|#FFF6E5|Administration|
+
+|Prospect / Member|
+start
+:Enquire about gym\nmembership;
+
+|Reception|
+:Capture prospect enquiry\n(name, contact, interest);
+
+if (Trial session\nrequested?) then ([yes])
+  :Check open trial slots;
+  if (Trial slot\navailable?) then ([yes])
+    :Reserve trial session slot;
+    :Send trial confirmation\nto prospect;
+    |Prospect / Member|
+    :Attend trial session;
+  else ([no])
+    |Reception|
+    :Offer next available slot\nto the prospect;
+  endif
+else ([no])
+endif
+
+|Prospect / Member|
+:Submit membership request\nwith personal, contact and\nmedical details;
+
+|Reception|
+repeat :Enter member details in\nregistration form;
+  :Validate submitted\nmember details;
+repeat while (Details valid and\ncomplete?) is ([no - re-verify details]) not ([yes])
+:Create member profile and\ngenerate Member ID;
+:Log declared medical\nrestrictions on the profile;
+:Send welcome e-mail\nto the member;
+
+|Membership Management|
+:Display published\nmembership plans;
+|Prospect / Member|
+:Select a membership plan;
+|Membership Management|
+:Create membership record\n(status = Pending);
+
+|Accounting|
+:Raise payment due for the\nselected plan;
+|Prospect / Member|
+:Pay by cash, card\nor online;
+|Accounting|
+:Collect membership payment;
+
+if (Payment\nsuccessful?) then ([no])
+  :Record balance in the\noverdue payments list;
+  :Send payment notice\nto the member;
+  |Membership Management|
+  :Hold membership as\nPending - access not granted;
+  stop
+else ([yes])
+  |Accounting|
+  :Clear the outstanding\nbalance;
+endif
+
+'--- Concurrent (fork/join) confirmation of a successful enrolment
+fork
+  |Accounting|
+  :Generate invoice (PDF);
+  :E-mail invoice to\nthe member;
+fork again
+  |Reception|
+  :Print payment receipt;
+fork again
+  |Membership Management|
+  :Activate membership and\nset expiry date;
+  :Queue renewal reminder\n(7 days before expiry);
+fork again
+  |Administration|
+  :Log the transaction in the\ndepartment activity monitor;
+end fork
+note right
+  Concurrent flow after payment:
+  invoicing, receipt printing,
+  activation and logging.
+end note
+
+|Trainer|
+:Open the member profile;
+if (Medical restriction\nlogged?) then ([yes])
+  :Display medical alert\nbefore workout is set;
+  :Adapt plan to the\nmedical restrictions;
+else ([no])
+endif
+:Assign workout plan and\nlink it to the profile;
+:Schedule personal\ntraining session;
+:Notify the member of the\nplan and session;
+
+|Prospect / Member|
+:Check in at the gym and\nattend the session;
+
+fork
+  |Administration|
+  :Record attendance at\nthe entrance;
+  :Monitor daily attendance\nand peak hours;
+fork again
+  |Trainer|
+  :Record member progress\n(weight, measurements);
+  if (Progress meets\nthe target?) then ([no])
+    :Update exercise routine\n(sets, reps, exercises);
+  else ([yes])
+  endif
+end fork
+
+|Membership Management|
+while (Membership expiring\nwithin 7 days?) is ([no - still active])
+  :Track membership status;
+endwhile ([yes])
+:Send renewal reminder\n(e-mail / SMS);
+
+|Prospect / Member|
+:Decide whether to\nrenew the membership;
+
+|Accounting|
+if (Renewal payment\ncompleted?) then ([yes])
+  :Collect renewal payment\nand issue receipt;
+  |Membership Management|
+  :Extend expiry date and\nrestore gym access;
+  |Administration|
+  :Update department\nactivity dashboard;
+  |Accounting|
+  :Include payment in the\nrevenue report;
+  |Membership Management|
+  #E6F4EA:Membership renewed -\nmember continues on the board;
+  stop
+else ([no])
+  |Membership Management|
+  :Set membership status to\nCancelled and stop access;
+  |Accounting|
+  if (Approved refund\nrequest?) then ([yes])
+    :Process refund and log\nthe transaction;
+  else ([no])
+    :Retain the balance in\noverdue / closed accounts;
+  endif
+  :Reconcile closure in the\nrevenue report;
+  #FCE8E6:Membership closed;
+  stop
+endif
+
+legend bottom
+  <b>Notation</b>
+  Rounded box = Activity | Diamond = Decision (condition / guard in [ ])
+  Thick bar = Fork / Join (concurrent flow) | Filled circle = Start | Encircled dot = Termination
+  Vertical lane = Actor performing the activity (swimlane)
+end legend
+
+@enduml
