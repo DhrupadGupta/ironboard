@@ -1,0 +1,152 @@
+' ============================================================
+' Ironboard — System Architecture (layered / component view)
+' Diagram ID   : DIA-15
+' Status       : ENHANCEMENT
+'                Syllabus Unit 5 teaches Architectural Design, but no
+'                Course Policy lab assigns an architecture diagram.
+'                Requested explicitly in Phase 2. NOT academic coverage.
+' Required by  : reference/syllabus/... Unit 5 (taught only); Phase 2 instruction
+' Traces to    : D01-D05, ACT-01..ACT-06, NFR-01, NFR-02, NFR-10, NFR-11,
+'                NFR-14, NFR-19, NFR-20, NFR-21, NFR-23, NFR-24, NFR-25
+' Assumptions  : ADR-001, ADR-002, ADR-005, ADR-006, ADR-008, ADR-014 (B-03 OPEN)
+' Last verified: 2026-08-16 against docs/requirements/
+' ============================================================
+@startuml
+skinparam backgroundColor #0c0c09
+skinparam defaultFontColor #f4f3ec
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 12
+skinparam shadowing false
+skinparam roundCorner 0
+' NOTE: "skinparam linetype ortho" is deliberately NOT used here.
+' Combined with the [hidden] ordering edges below it makes Graphviz 2.43
+' throw UnparsableGraphvizException. Module ordering is semantic and wins.
+skinparam ArrowColor #cbff3d
+skinparam ArrowFontColor #a9a89c
+skinparam nodesep 14
+skinparam ranksep 26
+skinparam rectangle {
+  BackgroundColor #151511
+  BorderColor #6b6b60
+  FontColor #f4f3ec
+}
+skinparam database {
+  BackgroundColor #151511
+  BorderColor #cbff3d
+  FontColor #f4f3ec
+}
+skinparam package {
+  BackgroundColor #0c0c09
+  BorderColor #cbff3d
+  FontColor #cbff3d
+}
+skinparam note {
+  BackgroundColor #1e1e18
+  BorderColor #6b6b60
+  FontColor #f4f3ec
+}
+skinparam legend {
+  BackgroundColor #151511
+  BorderColor #6b6b60
+  FontColor #f4f3ec
+}
+
+title Ironboard — System Architecture (DIA-15, ENHANCEMENT)
+
+rectangle "ACTORS\nReceptionist (ACT-01) · Trainer (ACT-02) · Administrator (ACT-03)\nMembership Manager (ACT-04) · Accounting Executive (ACT-05)\nMember (ACT-06 — ENH-01, owns no Lab 1 story)" as ACTORS #0c0c09
+
+package "1 · PRESENTATION — React 19 + TypeScript + Vite" as PRES {
+  rectangle "Router + Role Gate\nUX gating only — never security" as RTR
+  rectangle "Module Screens\nreception · trainer · administration\nmembership · accounting" as SCR
+  rectangle "Design System\ntokens.css + primitives (UI-01..UI-10)" as DS
+  rectangle "TanStack Query\nserver-state cache (NFR-20, NFR-25)" as TQ
+}
+
+package "2 · HTTP — Express 5" as HTTP {
+  rectangle "Middleware Chain (ordered)\nrequestId · logger · helmet · cors\nbodyParser · cookies · rateLimit\nsession · CSRF" as MW
+  rectangle "Route Registry  /api/v1/*\n+ permission guard per route" as RT
+  rectangle "Zod Validation\nshared schemas (NFR-02)" as ZOD
+  rectangle "Error Handler\nRFC 9457 Problem Details" as ERR
+}
+
+package "3 · APPLICATION — Controllers" as APP {
+  rectangle "Department Controllers\nHTTP concerns only — never touch Prisma" as CTL
+}
+
+package "4 · DOMAIN — Services (own transactions)" as DOM {
+  rectangle "D01\nReception\nFR-REC-01..05" as M1
+  rectangle "D04\nMembership\nFR-MEM-01..05" as M4
+  rectangle "D02\nTrainer\nFR-TRN-01..05" as M2
+  rectangle "D05\nAccounting\nFR-ACC-01..05" as M5
+  rectangle "D03\nAdministration\nFR-ADM-01..05" as M3
+}
+
+package "5 · PLATFORM KERNEL" as PLAT {
+  rectangle "Auth\nArgon2id + server sessions\n(ADR-006)" as AUTH
+  rectangle "RBAC\ndeny-by-default\n(NFR-10, NFR-11, NFR-21)" as RBAC
+  rectangle "Audit\nappend-only (NFR-24, ENH-13)" as AUD
+  rectangle "Notifications\noutbox + worker (NFR-01, NFR-19)" as NOT
+  rectangle "Reporting\naggregation (NFR-14, NFR-23)" as REP
+  rectangle "Scheduler\nACT-09 jobs (AC-19, AC-13)" as SCH
+  rectangle "Logging\npino structured + redaction" as LOG
+}
+
+package "6 · PERSISTENCE" as PERS {
+  rectangle "Repositories\nthe only Prisma consumers" as REPO
+  rectangle "Prisma 6 Client\ngenerated types (ADR-005)" as PRISMA
+}
+
+database "SQLite (WAL)\nbetter-sqlite3\nsingle writer" as DB
+
+package "7 · EXTERNAL ADAPTERS" as EXT {
+  rectangle "Email Transport\ninterface + dev sink" as EMAIL
+  rectangle "SMS Stub\nlogged — NEVER sent (AMB-12)" as SMS
+  rectangle "PDF Generator\nin-process (AC-04, AC-22)" as PDF
+}
+
+ACTORS --> PRES
+PRES --> HTTP : "HTTPS · session cookie · CSRF token"
+HTTP --> APP
+APP --> DOM
+DOM --> PERS
+DOM ..> PLAT : "auth · rbac · audit · notify · report · log"
+PLAT --> PERS
+PLAT --> EXT
+DOM --> EXT : "PDF (AC-04, AC-22)"
+PERS --> DB
+
+M1 -[hidden]right-> M4
+M4 -[hidden]right-> M2
+M2 -[hidden]right-> M5
+M5 -[hidden]right-> M3
+AUTH -[hidden]right-> RBAC
+RBAC -[hidden]right-> AUD
+AUD -[hidden]right-> NOT
+NOT -[hidden]right-> REP
+REP -[hidden]right-> SCH
+SCH -[hidden]right-> LOG
+EMAIL -[hidden]right-> SMS
+SMS -[hidden]right-> PDF
+
+legend right
+  |= Layer rule |= Constraint |
+  | Controllers | HTTP only — never Prisma |
+  | Services | own transactions — never req/res |
+  | Repositories | the only Prisma consumers |
+  | Module order | D01 -> D04 -> D02 -> D05 -> D03 |
+  | | (dependency order, not numeric) |
+  |= Cross-module (from ACs) |= |
+  | FR-REC-04 -> FR-ACC-01 | AC-04 |
+  | FR-MEM-03 -> FR-ACC-01 | AC-18 |
+  | FR-ADM-05 -> all four | AC-15 |
+  | FR-ACC-05 -> FR-MEM-01 | AC-25 |
+endlegend
+
+note bottom of DB
+  Single-writer embedded database.
+  NFR-12 "multiple branches efficiently" is a
+  DATA-SCOPING requirement (ADR-014), not clustering.
+  B-03 is OPEN — branchId placement is assumed (ASM-05).
+end note
+
+@enduml

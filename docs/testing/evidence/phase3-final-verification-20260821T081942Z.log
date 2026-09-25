@@ -1,0 +1,199 @@
+IRONBOARD — PHASE 3 FINAL VERIFICATION
+======================================================================
+Generated : 2026-08-21T08:19:42Z
+Branch    : claude/ironboard-handoff-review-0o2pag
+Verified  : be36b31 (tree state at verification; this log is committed on top)
+Base      : 30b4c91
+Node      : v22.22.2   npm: 10.9.7
+PR        : #2 -> claude/analyze-repo-requirements-06itgc (stacked on #1 -> main)
+
+SCOPE: review of the complete Phase 3 change set — the test-isolation fix
+(3292c8c) and the documentation reconciliation (be36b31).
+
+======================================================================
+1. WORKING TREE AND CHANGE SCOPE
+======================================================================
+$ git status --porcelain
+?? docs/testing/evidence/phase3-final-verification-20260821T081942Z.log
+(no output above = clean)
+
+$ git diff --stat 30b4c91..HEAD
+ CLAUDE.md                                          |  55 +-
+ docs/architecture/ARCHITECTURAL_DECISIONS.md       |  89 ++-
+ docs/architecture/DATABASE_DESIGN.md               |  82 ++-
+ docs/architecture/SYSTEM_ARCHITECTURE.md           |  21 +-
+ docs/diagrams/er/NOTES.md                          |   4 +-
+ docs/project/MASTER_PLAN.md                        |  64 +-
+ docs/project/PHASE_STATUS.md                       |  81 ++-
+ docs/project/REFERENCE_ANALYSIS.md                 |  22 +-
+ docs/project/REQUIREMENT_GAP_ANALYSIS.md           |  50 +-
+ docs/project/SESSION_HANDOFF.md                    | 705 ++++++---------------
+ docs/requirements/LAB1_TRACEABILITY_MATRIX.md      |  29 +-
+ docs/requirements/LAB2_NFR_TRACEABILITY.md         |   5 +-
+ .../phase3-test-isolation-20260816T152251Z.log     | 125 ++++
+ server/tests/checks.test.ts                        |   7 +-
+ server/tests/constraints.test.ts                   |  18 +-
+ server/tests/global-setup.ts                       |  26 +-
+ server/tests/helpers.ts                            | 111 +++-
+ server/tests/membership.test.ts                    |  21 +-
+ server/tests/relationships.test.ts                 |  38 +-
+ server/tests/schema.test.ts                        |  54 +-
+ server/tests/seed.test.ts                          |  56 +-
+ 21 files changed, 979 insertions(+), 684 deletions(-)
+
+$ git diff --name-only 30b4c91..HEAD -- reference/ | wc -l
+0
+=> 0 : NO reference/ FILE WAS MODIFIED (hard rule 1 upheld)
+
+$ git diff --stat 30b4c91..HEAD -- server/prisma/
+=> empty : schema.prisma and migration.sql are BYTE-IDENTICAL to the base.
+   The 135/136 defect was test isolation, not schema. No schema fix was
+   needed and none was made. Changes are confined to server/tests/ and docs/.
+
+======================================================================
+2. NO SECRETS, ENV FILES, BUILD ARTEFACTS OR TEMPORARY FILES
+======================================================================
+$ git ls-files | grep -iE '\.env|\.db|node_modules|/dist/|/build/|\.tmp'
+(none)
+
+$ git ls-files | grep '\.log$'   # evidence logs only, intentional
+
+$ git grep -inE "(password|secret|api[_-]?key|token)\s*[:=]\s*['\"][^'\"]{8,}" -- ':!docs' ':!reference'
+(no matches)
+
+$ git status --porcelain --untracked-files=all
+?? docs/testing/evidence/phase3-final-verification-20260821T081942Z.log
+(no output = no untracked leftovers)
+
+Seed credentials remain the literal placeholders DEV_SEED_NOT_A_REAL_HASH
+and DEV_SEED_PLACEHOLDER:, asserted by T-U-062. Emails use RFC 2606
+.invalid domains. server/.env is gitignored and untracked.
+
+======================================================================
+3. CLEAN COLD-CACHE RUN — database destroyed and rebuilt first
+======================================================================
+$ rm -f prisma/test.db*  &&  ls prisma/*.db*
+(none)
+$ npx prisma migrate deploy
+      
+All migrations have been successfully applied.
+$ npx tsx src/db/seed.ts
+└─────────────────────┴────────┘
+membership states: ACTIVE=725 CANCELLED=100 EXPIRED=175
+$ npx vitest run          # cold cache: no node_modules/.vite
+ ✓ tests/checks.test.ts (73 tests) 213ms
+ ✓ tests/constraints.test.ts (18 tests) 205ms
+ ✓ tests/seed.test.ts (12 tests) 2172ms
+ ✓ tests/schema.test.ts (12 tests) 196ms
+ ✓ tests/membership.test.ts (10 tests) 168ms
+ ✓ tests/relationships.test.ts (14 tests) 95ms
+ Test Files  6 passed (6)
+      Tests  139 passed (139)
+   Duration  8.79s (transform 165ms, setup 0ms, collect 424ms, tests 3.05s, environment 1ms, prepare 416ms)
+exit=0
+
+======================================================================
+4. SECOND COMPLETE RUN — warm cache, different file order
+======================================================================
+ ✓ tests/seed.test.ts (12 tests) 2304ms
+ ✓ tests/checks.test.ts (73 tests) 209ms
+ ✓ tests/constraints.test.ts (18 tests) 201ms
+ ✓ tests/schema.test.ts (12 tests) 148ms
+ ✓ tests/membership.test.ts (10 tests) 145ms
+ ✓ tests/relationships.test.ts (14 tests) 92ms
+ Test Files  6 passed (6)
+      Tests  139 passed (139)
+   Duration  8.70s (transform 181ms, setup 0ms, collect 432ms, tests 3.10s, environment 1ms, prepare 384ms)
+exit=0
+Vitest sequences files by cached duration, so run 2 executes in a
+different order from run 1. Both are green — this is the ordering that
+used to decide whether T-U-063 passed.
+
+======================================================================
+5. EACH FILE INDIVIDUALLY
+======================================================================
+schema          Tests 12 passed (12)
+checks          Tests 73 passed (73)
+constraints     Tests 18 passed (18)
+membership      Tests 10 passed (10)
+relationships   Tests 14 passed (14)
+seed            Tests 12 passed (12)
+
+======================================================================
+6. NO TEST-DATA LEAKS REMAIN
+======================================================================
+Run immediately after the suite above, against the same database file.
+$ npx tsx ./_leakcheck.mts
+tables scanned      : 28 + 1 exempt (RolePermission: composite PK, no id column)
+marker residue      : {} <- CLEAN
+stray C_test_* codes: 0
+post-suite totals   : {"members":"1000","memberships":"1000","payments":"952","paymentTotal":"934150000","refunds":"37","sessions":"0"}
+pristine baseline   : {"members":"1000","memberships":"1000","payments":"952","paymentTotal":"934150000","refunds":"37","sessions":"0"}
+live tables         : 29
+
+Post-suite totals are IDENTICAL to the pristine seed baseline. Before the
+fix this read members=1012 memberships=1002 payments=954
+paymentTotal=934151500, including 12 stray C_test_* member codes.
+
+In-suite guards, all green in the runs above:
+  expectPristine(db,'entry')  x6  each file proves the PREVIOUS file cleaned up
+  purgeTestRows + 'exit'      x6  each file proves it cleaned up after itself
+  global-setup teardown       x1  fails the run if anything survived
+  T-U-006 (x2)                    purge list matches the live schema
+  T-U-064                         detector+purge proven on a planted row
+
+======================================================================
+7. TYPECHECK
+======================================================================
+$ npm run typecheck
+> @ironboard/server@0.1.0 typecheck
+> tsc --noEmit
+
+exit=0  (tsc --noEmit, strict)
+
+======================================================================
+8. DOCUMENTATION MATCHES THE REPOSITORY
+======================================================================
+entities   : schema=29  migration=29  live=29   docs say: 29 entities
+tests      : actual=139                    docs say: 139 passing
+skills     : actual=6                       docs say: 6
+CHECKs     : actual=36                      docs say: 36
+triggers   : actual=7                       docs say: 7
+
+Stale-claim sweep (excluding reference/ and evidence logs; matches that are
+explicitly marked withdrawn/superseded/corrected are not stale):
+  28 entities            : CLEAN
+  26 tables              : CLEAN
+  63 tests               : CLEAN
+  five project skills    : CLEAN
+  B-03 is unresolved     : CLEAN
+  must be decided        : CLEAN
+  before Phase 3         : CLEAN
+  first-class tenant     : CLEAN
+  first-class scoping    : CLEAN
+
+Broken internal doc links:
+  MISSING: docs/diagrams/use-case/USE_CASE_DOCUMENTATION.md
+  MISSING: docs/project/DEVELOPMENT_PLAN.md
+  MISSING: docs/project/FEASIBILITY.md
+  MISSING: docs/project/PROBLEM_STATEMENT.md
+  MISSING: docs/project/PROCESS_MODEL.md
+  MISSING: docs/requirements/TRACEABILITY.md
+  MISSING: docs/requirements/USER_VS_SYSTEM_REQUIREMENTS.md
+  (the docs/project/*.md and USE_CASE_DOCUMENTATION.md entries above, if any,
+   are FORWARD references to unstarted Phase 2b deliverables — not broken links)
+
+======================================================================
+RESULT
+======================================================================
+cold-cache full run        PASS  139/139  exit 0
+second full run           PASS  139/139  exit 0  (different file order)
+each file individually    PASS  12/73/18/10/14/12
+test-data leaks           NONE  0 marker rows, 0 stray C_test_* codes
+typecheck                 PASS  exit 0
+schema unchanged          YES   prisma/ byte-identical to base 30b4c91
+docs match repository     YES   29 entities / 139 tests / 6 skills verified
+reference/ modified       NO    0 files
+secrets / env / artefacts NONE  only the 4 intentional evidence logs
+
+PHASE 3 VERIFIED. Phase 4 NOT started.
