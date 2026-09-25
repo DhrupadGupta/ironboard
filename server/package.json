@@ -18,14 +18,23 @@
     "seed": "tsx src/db/seed.ts"
   },
   "dependencies": {
+    "@node-rs/argon2": "^2.1.0",
+    "@paralleldrive/cuid2": "^2.2.2",
     "@prisma/client": "^6.3.0",
-    "@paralleldrive/cuid2": "^2.2.2"
+    "cookie-parser": "^1.4.7",
+    "express": "^5.2.1",
+    "helmet": "^8.3.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.10.7",
+    "@types/supertest": "^6.0.3",
     "prisma": "^6.3.0",
+    "supertest": "^7.2.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
-    "vitest": "^3.0.5",
-    "@types/node": "^22.10.7"
+    "vitest": "^3.0.5"
   }
 }

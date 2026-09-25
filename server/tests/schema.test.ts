@@ -4,26 +4,40 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { PrismaClient } from '@prisma/client';
-import { testDb, expectRejection, uid } from './helpers.js';
+import {
+  testDb, expectRejection, uid, purgeTestRows, expectPristine, PURGE_ORDER, PURGE_EXEMPT,
+} from './helpers.js';
 import { applyPragmas, readPragmas } from '../src/db/client.js';
 
 let db: PrismaClient;
-beforeAll(async () => { db = testDb(); await applyPragmas(db); });
-afterAll(async () => { await db.$disconnect(); });
+
+// The cascade/set-null tests create rows and delete them inline; the purge at
+// exit is the backstop that proves nothing was missed.
+beforeAll(async () => {
+  db = testDb();
+  await applyPragmas(db);
+  await expectPristine(db, 'entry');
+});
+afterAll(async () => {
+  await purgeTestRows(db);
+  await expectPristine(db, 'exit');
+  await db.$disconnect();
+});
 
 describe('T-U-001 migration applied from scratch', () => {
-  it('creates all 26 tables', async () => {
+  it('creates all 29 tables', async () => {
     const rows = await db.$queryRawUnsafe<{ name: string }[]>(
       `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_prisma%' ORDER BY name;`,
     );
     const names = rows.map((r) => r.name);
-    for (const t of ['Branch','Role','Permission','RolePermission','Staff','Session','Member',
+    const expected = ['Branch','Role','Permission','RolePermission','Staff','Session','Member',
       'MedicalRestriction','Prospect','MembershipPlan','Membership','MembershipEvent','WorkoutPlan',
       'Exercise','PlanExercise','ProgressEntry','TrainerAssignment','SessionSlot','AttendanceEvent',
       'AttendanceDaily','Equipment','MaintenanceSchedule','Payment','Receipt','Invoice','Refund',
-      'LedgerEntry','AuditEvent','NotificationOutbox']) {
-      expect(names, `missing table ${t}`).toContain(t);
-    }
+      'LedgerEntry','AuditEvent','NotificationOutbox'];
+    for (const t of expected) expect(names, `missing table ${t}`).toContain(t);
+    // Exact, not "at least": an unlisted table means the schema drifted.
+    expect(names.sort()).toEqual([...expected].sort());
   });
 
   it('records the migration as applied', async () => {
@@ -115,5 +129,29 @@ describe('T-U-005 indexes exist for the NFR budgets', () => {
     expect(idx).toMatch(/TrainerAssignment_trainerId_memberId_idx/);
     expect(idx).toMatch(/Membership_one_active_per_member/);
     expect(idx).toMatch(/TrainerAssignment_one_live_per_pair/);
+  });
+});
+
+describe('T-U-006 the isolation purge list covers the live schema', () => {
+  it('PURGE_ORDER + PURGE_EXEMPT names every table, exactly once', async () => {
+    const rows = await db.$queryRawUnsafe<{ name: string }[]>(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_prisma%';`);
+    const live = rows.map((r) => r.name).sort();
+    const listed = [...PURGE_ORDER, ...PURGE_EXEMPT].sort();
+    // A table added to the schema but not to PURGE_ORDER would leak silently:
+    // its rows would never be purged and never be counted as residue.
+    expect(listed).toEqual(live);
+    expect(new Set(listed).size).toBe(listed.length);
+  });
+
+  it('every table in PURGE_ORDER really has an id column, and the exempt ones do not', async () => {
+    for (const t of PURGE_ORDER) {
+      const cols = await db.$queryRawUnsafe<{ name: string }[]>(`PRAGMA table_info("${t}");`);
+      expect(cols.map((c) => c.name), `${t} has no id column`).toContain('id');
+    }
+    for (const t of PURGE_EXEMPT) {
+      const cols = await db.$queryRawUnsafe<{ name: string }[]>(`PRAGMA table_info("${t}");`);
+      expect(cols.map((c) => c.name), `${t} has an id and should be purged`).not.toContain('id');
+    }
   });
 });

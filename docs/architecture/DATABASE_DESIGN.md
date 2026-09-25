@@ -3,7 +3,7 @@
 **Phase:** 3 — Database Implementation · **Date:** 2026-08-16
 **Status:** ✅ **IMPLEMENTED** — schema, migration, constraints, indexes, seed and tests exist.
 **Schema:** `server/prisma/schema.prisma` · **Migration:** `server/prisma/migrations/20260816135841_init/`
-**Seed:** `server/src/db/seed.ts` · **Reset:** `server/src/db/reset.ts` · **Tests:** `server/tests/` (136 passing)
+**Seed:** `server/src/db/seed.ts` · **Reset:** `server/src/db/reset.ts` · **Tests:** `server/tests/` (139 passing)
 **Evidence:** `docs/testing/evidence/phase3-db-20260816T140858Z.log` (implementation) ·
 `docs/testing/evidence/phase3-selfreview-20260816T145257Z.log` (self-review)
 **Diagram:** `docs/diagrams/er/er-model.png` (`DIA-16`, ENHANCEMENT)
@@ -42,8 +42,14 @@ are all invented, and `NFR-02` ("validate all member information") gives no guid
 
 ## 2. Entity catalogue
 
-**28 entities in eight groups** (the earlier "25" was an arithmetic error — the list below has
-always contained 28 after `RefundRequest` was withdrawn by `B-04`).
+**29 entities in eight groups.** Verified against the implementation, not asserted: 29 `model`
+blocks in `server/prisma/schema.prisma`, 29 `CREATE TABLE` statements in
+`prisma/migrations/20260816135841_init/migration.sql`, and 29 live tables — `T-U-001` asserts
+the set exactly. `RefundRequest` was withdrawn by `B-04` and is **not** among them.
+
+> ⚠️ **Corrected 2026-08-16.** This heading previously read "28 entities" while the catalogue
+> below already listed 29 (6+3+3+5+3+2+5+2). The error had propagated into `PHASE_STATUS.md`,
+> `SESSION_HANDOFF.md` and `LAB1_TRACEABILITY_MATRIX.md`; all are now 29.
 `⚠️` marks an entity that exists **only** to unblock a Lab 1 story whose write path no story
 provides. Every entity has a documented purpose; none was added because it "sounded useful".
 
@@ -249,6 +255,42 @@ live DDL from `sqlite_master` and fails if the schema ever grows a CHECK that ha
 | `Membership_state_transition_guard` | The **`B-05` transition table**: `CANCELLED` is terminal; `ACTIVE→{EXPIRED,CANCELLED}`; `EXPIRED→{ACTIVE,CANCELLED}` |
 | `Refund_not_exceeding_payment` | Σ refunds ≤ payment amount (`NFR-24`) |
 
+### Test isolation — the shared-database contract
+
+The suite runs against **one** SQLite file (single-writer, so `vitest.config.ts` sets
+`fileParallelism: false`). Rows a test leaves behind are therefore visible to every later test
+file. This is not hypothetical: it produced a real defect — a cold-cache run failed
+**135 / 136** because `constraints.test.ts` (12 members, 2 memberships, 2 payments, 2 refunds,
+3 trainer assignments) and `membership.test.ts` (7 members, 7 memberships, 1 event) cleaned up
+nothing, and `T-U-063` (seed determinism) compares the database either side of a re-seed that
+truncates. The leaked rows were read as **seed non-determinism**, which they were not. Because
+Vitest sequences files by cached duration, the failure moved between runs.
+
+Every id minted by `uid()` carries the marker `_test_`. That marker — nothing else — defines a
+test row, and the contract each test file honours is:
+
+| Hook | Call | Proves |
+|---|---|---|
+| `beforeAll` | `expectPristine(db, 'entry')` | the **previous** file cleaned up |
+| `afterAll` | `purgeTestRows(db)` | this file's rows are gone |
+| `afterAll` | `expectPristine(db, 'exit')` | the purge was complete |
+| suite teardown (`tests/global-setup.ts`) | `findTestRows(db)` | nothing survived the whole run |
+
+The entry assertion is what makes the guarantee **order-independent** — a leak that happens to
+be harmless in one file ordering still fails the run, and the error names the offending tables.
+
+`purgeTestRows()` deletes child-first with `foreign_keys = ON` (a wrong order fails loudly
+rather than orphaning rows) and deliberately does **not** disable the append-only triggers: a
+test row in `LedgerEntry` or `AuditEvent` cannot be cleaned up, so no test may write to those
+tables outside a rolled-back transaction. `RolePermission` is exempt — composite primary key,
+no `id` column, and no test creates one. `T-U-006` guards the table list against schema drift.
+
+`T-U-064` is the proof the mechanism works rather than the proof it is unused: it plants a row,
+asserts the detector sees it, asserts `expectPristine` throws naming the table, purges, and
+asserts the baseline is restored. Verified by negative control — with the purge disabled, every
+individual test still passed while the run exited **1**. Evidence:
+`docs/testing/evidence/phase3-test-isolation-20260816T152251Z.log`.
+
 ### ⚠️ Known limitation — Prisma discards trigger messages
 
 Prisma maps SQLite `SQLITE_CONSTRAINT_TRIGGER` (code 1811) onto its generic **P2003 "Foreign key
@@ -338,20 +380,26 @@ Added deliberately to serve a specific NFR, not speculatively.
 
 **[REQ]** `NFR-02`, `NFR-17`, `NFR-24`.
 
-| Constraint | Enforces |
-|---|---|
-| `Membership.state` CHECK ∈ 4 values | `NFR-17`, ADR-013 |
-| `Payment.method` CHECK ∈ {cash, card, online} | `AC-21` |
-| `Payment.amountMinor > 0` | `NFR-24` |
-| `Refund.amountMinor <= Payment.amountMinor` | `NFR-24` — no over-refund |
-| `Receipt.paymentId` UNIQUE | `AC-04` one receipt per payment |
-| `Refund.refundRequestId` UNIQUE | `AC-24` one refund per approved request |
-| `RefundRequest.status = 'approved'` before `Refund` | `AC-24` "Given an **approved** refund request" |
-| FK `ON DELETE RESTRICT` throughout | `NFR-13`, `NFR-07` |
-| `LedgerEntry`, `AuditEvent` — no UPDATE/DELETE | ADR-011 |
+| Constraint | Enforces | Implemented as |
+|---|---|---|
+| `Membership.state` CHECK ∈ **3** values (`ACTIVE`, `EXPIRED`, `CANCELLED`) | `NFR-17`, `B-05` | CHECK |
+| `Payment.method` CHECK ∈ {cash, card, online} | `AC-21` | CHECK |
+| `Payment.amountMinor > 0` | `NFR-24` | CHECK |
+| Σ `Refund.amountMinor` ≤ `Payment.amountMinor` | `NFR-24` — no over-refund | `Refund_not_exceeding_payment` trigger |
+| `Receipt.paymentId` UNIQUE | `AC-04` one receipt per payment | UNIQUE index |
+| `Refund.approvedAt` / `approvedByStaffId` / `approvalReference` | `AC-24` "Given an **approved** refund request" — approval is an **external** precondition captured as data (`ENH-05` WITHDRAWN by `B-04`) | columns on `Refund` |
+| FK `ON DELETE` `Cascade` / `Restrict` / `SetNull`, declared per relation | `NFR-13`, `NFR-07` | FK actions |
+| `LedgerEntry`, `AuditEvent` — no UPDATE/DELETE; `MembershipEvent` — no UPDATE | ADR-011, `ENH-13`, `WF-02` | triggers |
 
-**Append-only is enforced at the repository layer**, which exposes only `create` and read
-methods for those two tables. SQLite triggers are a possible belt-and-braces addition.
+> ⚠️ **Corrected 2026-08-16.** This table previously described a 4-value state CHECK (superseded
+> by `B-05`), a `Refund.refundRequestId` UNIQUE and a `RefundRequest.status` precondition — none
+> of which exists: `RefundRequest` was withdrawn by `B-04` and never implemented.
+
+**Append-only is enforced by the database, not by application code** — `LedgerEntry` and
+`AuditEvent` carry `BEFORE UPDATE` and `BEFORE DELETE` triggers, `MembershipEvent` a
+`BEFORE UPDATE` trigger. This was previously described as a repository-layer concern with
+triggers "a possible belt-and-braces addition"; the triggers are implemented and there is no
+repository layer yet, so the database is the only thing enforcing it.
 
 ---
 
@@ -402,13 +450,19 @@ Reports must state that the absolute claim cannot be proven, and report the prox
 
 > ⚠️ **DEVELOPMENT SEED DATA — NOT PRODUCTION DATA.**
 > Every name, email and phone number is fabricated. Emails use the RFC 2606 reserved
-> `.invalid` TLD and can never resolve. `passwordHash` is the literal placeholder
-> `DEV_SEED_NOT_A_REAL_HASH` — **not a usable credential**. `conditionCipher` values are
-> `DEV_SEED_PLACEHOLDER:` strings, **not encrypted data**. All three facts are asserted by
-> `T-U-062`.
+> `.invalid` TLD and can never resolve. `conditionCipher` values are `DEV_SEED_PLACEHOLDER:`
+> strings, **not encrypted data**. `T-U-062` asserts it.
+>
+> **`passwordHash` changed in Phase 4A.** It was the literal placeholder
+> `DEV_SEED_NOT_A_REAL_HASH`; it is now a **real Argon2id hash** of one documented development
+> password (`server/src/db/dev-credentials.ts`, `docs/security/AUTHENTICATION.md` §2). The
+> placeholder is gone — `T-U-062` asserts zero remain, that the stored value is an Argon2id
+> hash, that the plaintext appears in no column, and that pending accounts have a **null** hash.
 
 **Deterministic**: a fixed mulberry32 seed (`20260816`) and a fixed epoch mean repeated runs
-produce byte-identical data. `T-U-063` re-runs the seed and compares a content fingerprint.
+produce byte-identical data — **with one deliberate exception since Phase 4A: Argon2id hashes
+embed a random salt, so `passwordHash` differs between runs by design.** `T-U-063` fingerprints
+counts and totals rather than hashes, so the guarantee is unchanged where it is asserted.
 
 Scale — the ADR-012 🟦 **ENGINEERING VERIFICATION THRESHOLD** for a student/college project:
 

@@ -4,12 +4,24 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { PrismaClient } from '@prisma/client';
-import { testDb, uid } from './helpers.js';
+import { testDb, purgeTestRows, expectPristine } from './helpers.js';
 import { applyPragmas } from '../src/db/client.js';
 
 let db: PrismaClient;
-beforeAll(async () => { db = testDb(); await applyPragmas(db); });
-afterAll(async () => { await db.$disconnect(); });
+
+// This file is READ-ONLY, so its aggregate assertions below are also isolation
+// detectors: a leaked row from any earlier file would break them. The entry
+// assertion names the culprit before that happens.
+beforeAll(async () => {
+  db = testDb();
+  await applyPragmas(db);
+  await expectPristine(db, 'entry');
+});
+afterAll(async () => {
+  await purgeTestRows(db);
+  await expectPristine(db, 'exit');
+  await db.$disconnect();
+});
 
 describe('T-I-050 B-03 branch scoping', () => {
   it('Member.homeBranchId and Staff.homeBranchId are NULLABLE', async () => {
@@ -90,19 +102,19 @@ describe('T-I-052 money relationships (NFR-24)', () => {
     await check('LedgerEntry', 'amountMinor');
   });
 
-  it('every SEEDED payment has exactly one receipt', async () => {
-    // Scoped to seed rows: constraint tests create bare payments on purpose.
-    const paid = await db.payment.count({ where: { NOT: { id: { contains: '_test_' } } } });
-    const receipts = await db.receipt.count({ where: { NOT: { id: { contains: '_test_' } } } });
+  it('every payment has exactly one receipt', async () => {
+    // Unscoped: with the isolation contract in force there are no probe rows
+    // left to exclude, so this now covers the whole table.
+    const paid = await db.payment.count();
+    const receipts = await db.receipt.count();
     expect(receipts).toBe(paid);
   });
 
   it('ledger totals reconcile with payments and refunds', async () => {
-    const seedOnly = { NOT: { id: { contains: '_test_' } } };
-    const payTotal = await db.ledgerEntry.aggregate({ where: { kind: 'payment', ...seedOnly }, _sum: { amountMinor: true } });
-    const refTotal = await db.ledgerEntry.aggregate({ where: { kind: 'refund', ...seedOnly }, _sum: { amountMinor: true } });
-    const payments = await db.payment.aggregate({ where: seedOnly, _sum: { amountMinor: true } });
-    const refunds = await db.refund.aggregate({ where: seedOnly, _sum: { amountMinor: true } });
+    const payTotal = await db.ledgerEntry.aggregate({ where: { kind: 'payment' }, _sum: { amountMinor: true } });
+    const refTotal = await db.ledgerEntry.aggregate({ where: { kind: 'refund' }, _sum: { amountMinor: true } });
+    const payments = await db.payment.aggregate({ _sum: { amountMinor: true } });
+    const refunds = await db.refund.aggregate({ _sum: { amountMinor: true } });
     expect(payTotal._sum.amountMinor).toBe(payments._sum.amountMinor);
     // Refund ledger rows are stored negative.
     expect(-(refTotal._sum.amountMinor ?? 0)).toBe(refunds._sum.amountMinor);
@@ -127,7 +139,7 @@ describe('T-I-052 money relationships (NFR-24)', () => {
 describe('T-I-053 attendance aggregation matches raw events', () => {
   it('AttendanceDaily totals equal the AttendanceEvent counts', async () => {
     const daily = await db.attendanceDaily.aggregate({ _sum: { visits: true } });
-    const raw = await db.attendanceEvent.count({ where: { NOT: { id: { contains: '_test_' } } } });
+    const raw = await db.attendanceEvent.count(); // unscoped — see the receipt test above
     expect(daily._sum.visits).toBe(raw);
   });
 

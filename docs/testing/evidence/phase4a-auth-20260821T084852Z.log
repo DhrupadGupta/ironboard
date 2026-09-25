@@ -1,0 +1,211 @@
+IRONBOARD — PHASE 4A AUTHENTICATION FOUNDATION — EVIDENCE
+======================================================================
+Generated : 2026-08-21T08:48:52Z
+Branch    : claude/ironboard-handoff-review-0o2pag
+Base      : af6a4f6 (end of Phase 3)
+Node      : v22.22.2
+
+SCOPE: authentication foundation only. NO department service, NO department
+API, NO UI. 0 of the 25 functional requirements are delivered.
+
+======================================================================
+0. PRE-FLIGHT (before any Phase 4A code)
+======================================================================
+Phase 3 status COMPLETE        : yes (docs/project/PHASE_STATUS.md)
+Phase 3 tests green            : yes  139/139 cold cache
+Typecheck green                : yes  exit 0
+Working tree                   : clean at af6a4f6
+B-01 RESOLVED                  : yes  members log in (ENH-01)
+B-02 RESOLVED                  : yes  six roles, deny-by-default (ADR-007)
+B-03 / B-04 / B-05 RESOLVED    : yes  (CLAUDE.md decision table)
+No resolved decision reopened  : confirmed — ADR-006/007 implemented AS RECORDED
+
+======================================================================
+1. NO SCHEMA CHANGE
+======================================================================
+$ git diff --stat af6a4f6..HEAD -- server/prisma/
+=> empty: authentication was built on the Session/Staff/Role/Permission
+   tables Phase 3 already shipped. See ADR-017 for how idle+absolute
+   expiry fits columns that have no lastSeenAt.
+
+$ grep -c '^model ' prisma/schema.prisma
+29
+$ grep -c 'CREATE TABLE' prisma/migrations/20260816135841_init/migration.sql
+29
+
+======================================================================
+2. TYPECHECK
+======================================================================
+$ npm run typecheck
+> @ironboard/server@0.1.0 typecheck
+> tsc --noEmit
+
+exit=0
+
+======================================================================
+3. FULL SUITE — destroyed database, rebuilt, cold cache
+======================================================================
+$ rm -f prisma/test.db* && ls prisma/*.db*
+(none)
+$ npx prisma migrate deploy
+      
+All migrations have been successfully applied.
+$ npx tsx src/db/seed.ts
+└─────────────────────┴────────┘
+membership states: ACTIVE=725 CANCELLED=100 EXPIRED=175
+$ npx vitest run
+ ✓ tests/auth/security.api.test.ts (23 tests) 1257ms
+ ✓ tests/checks.test.ts (73 tests) 206ms
+ ✓ tests/constraints.test.ts (18 tests) 182ms
+ ✓ tests/auth/login.api.test.ts (22 tests) 713ms
+ ✓ tests/seed.test.ts (14 tests) 2056ms
+ ✓ tests/auth/activation.test.ts (13 tests) 455ms
+ ✓ tests/auth/session.test.ts (13 tests) 213ms
+ ✓ tests/schema.test.ts (12 tests) 137ms
+ ✓ tests/membership.test.ts (10 tests) 146ms
+ ✓ tests/relationships.test.ts (14 tests) 83ms
+ ✓ tests/auth/password.test.ts (12 tests) 329ms
+ Test Files  11 passed (11)
+      Tests  224 passed (224)
+   Duration  13.29s (transform 279ms, setup 0ms, collect 1.23s, tests 5.78s, environment 2ms, prepare 719ms)
+exit=0
+
+======================================================================
+4. SECOND FULL RUN + ORDER INDEPENDENCE
+======================================================================
+ Test Files  11 passed (11)
+      Tests  224 passed (224)
+shuffle 1:  Tests 224 passed (224)
+shuffle 2:  Tests 224 passed (224)
+shuffle 3:  Tests 224 passed (224)
+
+======================================================================
+5. PHASE 3 TESTS STILL PASS
+======================================================================
+  schema          Tests 12 passed (12)
+  checks          Tests 73 passed (73)
+  constraints     Tests 18 passed (18)
+  membership      Tests 10 passed (10)
+  relationships   Tests 14 passed (14)
+  seed            Tests 14 passed (14)
+  Phase 3 total: 141 (seed.test.ts grew 12 -> 14: the placeholder-hash
+  assertion was replaced by three stronger ones)
+
+======================================================================
+6. AUTHENTICATION TESTS
+======================================================================
+  password        Tests 12 passed (12)
+  session         Tests 13 passed (13)
+  activation      Tests 13 passed (13)
+  login.api       Tests 22 passed (22)
+  security.api    Tests 23 passed (23)
+  Authentication total: 83
+
+======================================================================
+7. TEST ISOLATION CONTRACT STILL HOLDS (the 5 new files honour it)
+======================================================================
+marker residue                : {}
+post-suite totals             : {"members":"1000","staff":"18","sessions":"0","outbox":"100"}
+pristine baseline             : members=1000 staff=18 sessions=0 outbox=100
+placeholder hashes remaining  : 0 (must be 0)
+argon2id staff hashes         : 17 / null (pending): 1
+argon2id member hashes        : 1 (1 documented demo member, ENH-01)
+plaintext password in any hash: 0 (must be 0)
+
+======================================================================
+8. SECRETS AND ARTEFACTS
+======================================================================
+$ git ls-files | grep -iE '\.env|\.db|node_modules|/dist/|\.tmp'
+(none)
+$ git status --porcelain --untracked-files=all  (before commit)
+ M docs/architecture/ARCHITECTURAL_DECISIONS.md
+ M docs/project/PHASE_STATUS.md
+ M docs/requirements/LAB1_TRACEABILITY_MATRIX.md
+ M docs/requirements/LAB2_NFR_TRACEABILITY.md
+ M package-lock.json
+ M server/package.json
+ M server/src/db/seed.ts
+ M server/tests/seed.test.ts
+?? docs/architecture/API_CONTRACTS.md
+?? docs/security/AUTHENTICATION.md
+?? docs/security/ROLE_PERMISSION_MATRIX.md
+?? docs/testing/evidence/phase4a-auth-20260821T084852Z.log
+?? server/_sr.mts
+?? server/src/config.ts
+?? server/src/db/dev-credentials.ts
+?? server/src/http/app.ts
+?? server/src/http/middleware.ts
+?? server/src/http/schemas.ts
+?? server/src/platform/auth/activation.service.ts
+?? server/src/platform/auth/auth.service.ts
+?? server/src/platform/auth/deps.ts
+?? server/src/platform/auth/errors.ts
+?? server/src/platform/auth/password.ts
+?? server/src/platform/auth/session.service.ts
+?? server/src/platform/auth/tokens.ts
+?? server/src/platform/logging/logger.ts
+?? server/src/platform/rbac/permissions.ts
+?? server/tests/auth/activation.test.ts
+?? server/tests/auth/helpers.ts
+?? server/tests/auth/login.api.test.ts
+?? server/tests/auth/password.test.ts
+?? server/tests/auth/security.api.test.ts
+?? server/tests/auth/session.test.ts
+
+Committed development credential: DEV_PASSWORD in server/src/db/dev-credentials.ts.
+Deliberate and documented (docs/security/AUTHENTICATION.md §2). It authenticates
+ONLY fabricated .invalid accounts in a local SQLite file. Not a real personal
+credential. Production accounts are created pending with a NULL hash and set
+their own password via the single-use AC-11 activation link.
+
+======================================================================
+9. SELF-REVIEW — 12 checks against the running code
+======================================================================
+ #  Check                                                        Result
+ 1  Phase 3 suite still green                                    PASS  141/141
+ 2  Full suite from destroyed DB, cold cache                     PASS  224/224
+ 3  Order-independent (3 shuffled orderings)                     PASS  224/224 each
+ 4  Test-isolation contract holds                                PASS  0 residue
+ 5  Typecheck                                                    PASS  exit 0
+ 6  No schema change                                             PASS  prisma/ diff empty
+ 7  Placeholder hashes eliminated                                PASS  0 remaining
+ 8  No password/hash in any API response                         PASS  T-A-041
+ 9  No password/token/hash/medical data in logs                  PASS  T-A-046
+10  Login failures indistinguishable (body/code/timing/cookie)   PASS  T-A-040 + ADR-016
+11  NFR-11 deny-by-default proven for all 5 non-admin roles      PASS  T-A-042
+12  No requirement marked VERIFIED just because auth exists      PASS  AC-11/NFR-11 = PARTIAL
+
+DEFECTS FOUND AND FIXED DURING THIS PHASE (both caught by new tests):
+  1. Throwing inside a Prisma interactive transaction ROLLED BACK the
+     expired-activation-token cleanup, leaving a dead token probeable.
+     Fixed: the transaction returns an outcome; the failure is raised
+     outside it so the cleanup commits. Caught by T-A-023.
+  2. emailSchema validated BEFORE trimming, so a pasted address with
+     surrounding whitespace was rejected as malformed.
+     Fixed: normalise then validate via .pipe(). Caught by T-A-030.
+
+======================================================================
+10. WHAT IS *NOT* DONE — stated plainly
+======================================================================
+  - Member activation / set-password: NOT IMPLEMENTED. Member has no
+    activationTokenHash / activationExpiresAt / status columns, and no
+    acceptance criterion describes a member obtaining a password (AC-11 is
+    about staff; the portal is ENH-01). Building it would mean inventing a
+    requirement AND migrating the schema. A member CAN log in; one documented
+    demo member is seeded. NEEDS A REQUIREMENT-OWNER DECISION.
+  - Disabled member accounts: Member has no status column. Not invented.
+  - Notification dispatch: outbox rows are written; nothing sends them.
+    Therefore AC-11 is PARTIAL, not VERIFIED.
+  - Field encryption (NFR-21, NFR-10): not started. conditionCipher still
+    holds DEV_SEED_PLACEHOLDER: strings.
+  - NFR-10's per-member TrainerAssignment gate: not implemented (Phase 4B).
+  - The other ~48 designed endpoints: absent, not unguarded.
+  - 0 of 25 functional requirements delivered. 0 of 25 NFRs VERIFIED.
+  - 0 of 11 mandatory diagrams + 0 of 1 written artefact.
+  - Pre-existing npm advisory: deepmerge-ts via the prisma CLI (dev-only,
+    transitive, not in the runtime path). Not introduced by Phase 4A and NOT
+    fixed here — bumping Prisma mid-phase is the R-20 migration-drift risk.
+
+======================================================================
+RESULT: PHASE 4A COMPLETE. Phase 4B NOT started.
+======================================================================

@@ -41,6 +41,11 @@ interpretation — it requires decisions from the requirement owner.
 
 ## 2. Risk register
 
+> ⚠️ **STATUS BANNER — added 2026-08-16.** This register is the **original assessment** and is
+> kept verbatim. Live risk status is maintained in **`docs/project/MASTER_PLAN.md` §26**, where
+> `R-01`–`R-05`, `R-08` and `R-20` are now **closed**. Do not read the severities below as
+> current.
+
 Ranked by impact on the ability to build. Probability = likelihood the gap causes rework if
 unresolved before coding.
 
@@ -67,9 +72,30 @@ unresolved before coding.
 
 ---
 
-## 3. Blocking issues — must be resolved before any coding
+## 3. Blocking issues — five of six RESOLVED
 
-These six cannot be resolved by reading the sources more carefully. **They require a decision.**
+> ⚠️ **STATUS BANNER — added 2026-08-16. Read this before the table.**
+>
+> This section is the **original analysis**: it records the questions as they stood before any
+> decision was taken, and the table below — including its "*(recommended)*" markers — is kept
+> verbatim as a historical record. **It is not the current status, and three of its
+> recommendations were overridden.**
+>
+> | ID | Status | Outcome | Recommendation here still valid? |
+> |---|---|---|---|
+> | `B-01` | ✅ RESOLVED | Members **do** log in — six roles, Member tracked as `ENH-01` | ❌ overridden — (a) "staff-only v1" was not chosen |
+> | `B-02` | ✅ RESOLVED | **Six roles, deny-by-default RBAC** (ADR-007), with two resource-level checks | ❌ overridden — (a) "five flat roles" was not chosen; the outcome is nearest (b)+(c) |
+> | `B-03` | ✅ RESOLVED | Branch is **non-isolating**; people carry a **nullable** `homeBranchId` | ❌ overridden — (a) "members + staff branch-scoped" was rejected; nearest to (c) |
+> | `B-04` | ✅ RESOLVED | `ENH-02`/`03`/`04`/`06`/`07` implemented; **`ENH-05` withdrawn** | ✅ decided per record, per §4 |
+> | `B-05` | ✅ RESOLVED | **Three** states — `ACTIVE`, `EXPIRED`, `CANCELLED`; `EXPIRING` derived | ❌ overridden — neither (a) four states nor (b) two |
+> | `B-06` | ⚠️ **OPEN** | Escalate to faculty; affects submission labelling only | (c) "label by artefact" adopted as mitigation |
+>
+> Decision records: `docs/decisions/B-03_DECISION.md`, `B-04_API_DECISIONS.md`,
+> `B-05_MEMBERSHIP_STATE_MACHINE.md`; ADR-007, ADR-013, ADR-014.
+> **Do not reopen a resolved decision from this table.**
+
+These six could not be resolved by reading the sources more carefully. **They required a
+decision.** As posed at the time:
 
 | # | Question | Why it blocks | Options |
 |---|---|---|---|
@@ -259,7 +285,23 @@ Recorded explicitly so that absence is never mistaken for obligation.
 
 ## 9. Assumptions required to proceed
 
-Full list in `REFERENCE_ANALYSIS.md` §17. The ten that carry material risk:
+> ⚠️ **STATUS BANNER — added 2026-08-16.** Four of these assumptions were **contradicted** by
+> the decisions that followed and are **WITHDRAWN**. They are kept below as the historical
+> record of what was assumed before the decisions were taken — **do not implement against
+> them.**
+>
+> | ID | Original assumption | Status |
+> |---|---|---|
+> | `ASM-01` | Members have no login in v1 | ❌ **WITHDRAWN** — `B-01`: members **do** log in (`ENH-01`) |
+> | `ASM-02` | Five flat roles | ❌ **WITHDRAWN** — `B-02`/ADR-007: **six** roles, deny-by-default, two resource-level checks |
+> | `ASM-05` | Members branch-scoped | ❌ **WITHDRAWN** — `B-03`: branch is non-isolating; `homeBranchId` **nullable** |
+> | `ASM-13` | Four states incl. `Expiring` | ❌ **WITHDRAWN** — `B-05`: **three** states; `EXPIRING` derived |
+> | `ASM-09` | Three golden rules (`DIA-12`) | ⚠️ **STILL AN ASSUMPTION** — not in any source |
+> | `ASM-10` | Unquantified NFRs adopt a numeric peer | ✅ **Superseded by ADR-012** — thresholds are explicit and 🟦-labelled |
+> | `ASM-16` | Label by artefact, not number | ✅ **Adopted** as the `B-06` mitigation |
+
+Full list in `REFERENCE_ANALYSIS.md` §17. The ten that carry material risk, **as assessed at
+the time**:
 
 | ID | Assumption | Resolves | Risk if wrong |
 |---|---|---|---|

@@ -7,13 +7,27 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { PrismaClient } from '@prisma/client';
-import { testDb } from './helpers.js';
+import { testDb, uid, findTestRows, purgeTestRows, expectPristine } from './helpers.js';
 import { applyPragmas } from '../src/db/client.js';
+import { DEV_PASSWORD } from '../src/db/dev-credentials.js';
 
 const serverRoot = resolve(import.meta.dirname, '..');
 let db: PrismaClient;
-beforeAll(async () => { db = testDb(); await applyPragmas(db); });
-afterAll(async () => { await db.$disconnect(); });
+
+// T-U-063 compares the database either side of a re-seed, and the re-seed
+// truncates. One leaked row from ANY earlier file would therefore be read as
+// seed non-determinism. The entry assertion rules that out before the
+// comparison runs, and names the file that actually leaked.
+beforeAll(async () => {
+  db = testDb();
+  await applyPragmas(db);
+  await expectPristine(db, 'entry');
+});
+afterAll(async () => {
+  await purgeTestRows(db);
+  await expectPristine(db, 'exit');
+  await db.$disconnect();
+});
 
 describe('T-U-060 seed scale matches ADR-012 (student/college project)', () => {
   it('3 operating branches + 1 disabled, 1000 members, 5 plans, 90 days of attendance', async () => {
@@ -23,8 +37,9 @@ describe('T-U-060 seed scale matches ADR-012 (student/college project)', () => {
     expect(await db.branch.count({ where: { status: 'active' } })).toBe(3);
     expect(await db.branch.count({ where: { status: 'disabled' } })).toBe(1);
     expect(await db.membershipPlan.count()).toBe(5);
-    // Tests in other files add probe members; assert the seed floor.
-    expect(await db.member.count()).toBeGreaterThanOrEqual(1000);
+    // Exact, not a floor: probe members from other files used to make this
+    // unassertable. The isolation contract means the count is now the seed's.
+    expect(await db.member.count()).toBe(1000);
     // Prisma stores DateTime as INTEGER epoch-milliseconds in SQLite, so
     // date() needs an explicit conversion — date("col") alone yields NULL.
     const days = await db.$queryRawUnsafe<{ n: bigint }[]>(
@@ -39,7 +54,9 @@ describe('T-U-060 seed scale matches ADR-012 (student/college project)', () => {
 });
 
 describe('T-U-061 seed populates every entity the phase requires', () => {
-  it('has rows in all 26 tables', async () => {
+  // 28 of the 29 tables. `Session` is excluded because it is empty BY DESIGN —
+  // no login path exists yet, so nobody has a session.
+  it('has rows in all 28 tables the seed populates', async () => {
     const counts: Record<string, number> = {
       Branch: await db.branch.count(), Role: await db.role.count(),
       Permission: await db.permission.count(), RolePermission: await db.rolePermission.count(),
@@ -72,13 +89,46 @@ describe('T-U-061 seed populates every entity the phase requires', () => {
 });
 
 describe('T-U-062 DEVELOPMENT SEED DATA is clearly not production data', () => {
-  it('contains no real credential — only the placeholder marker', async () => {
-    const staff = await db.staff.findMany({ select: { passwordHash: true } });
+  /**
+   * Phase 4A replaced the `DEV_SEED_NOT_A_REAL_HASH` placeholder with real
+   * Argon2id hashes of ONE documented development password. The assertion
+   * therefore changed shape but not strength — it is now stronger, because it
+   * proves the stored value is a *hash* and that the plaintext is absent.
+   */
+  it('stores only Argon2id hashes — never a plaintext password', async () => {
+    const staff = await db.staff.findMany({ select: { passwordHash: true, status: true } });
     for (const s of staff) {
-      if (s.passwordHash !== null) expect(s.passwordHash).toBe('DEV_SEED_NOT_A_REAL_HASH');
+      if (s.status === 'pending') {
+        // A pending account cannot have a password: it has never been activated.
+        expect(s.passwordHash).toBeNull();
+      } else {
+        expect(s.passwordHash).toMatch(/^\$argon2id\$/);
+        expect(s.passwordHash).not.toContain(DEV_PASSWORD);
+      }
     }
-    const members = await db.member.findMany({ select: { passwordHash: true } });
-    expect(members.every((m) => m.passwordHash === null)).toBe(true);
+    // The old placeholder must be gone from the database entirely.
+    expect(await db.staff.count({ where: { passwordHash: 'DEV_SEED_NOT_A_REAL_HASH' } })).toBe(0);
+  });
+
+  it('activates exactly one demo member (ENH-01) and no others', async () => {
+    // ENH-01: no acceptance criterion gives a member a password, and Member has
+    // no activation columns, so exactly one demo account exists to exercise the
+    // login path. The other 999 cannot authenticate at all.
+    const withPassword = await db.member.count({ where: { NOT: { passwordHash: null } } });
+    expect(withPassword).toBe(1);
+    expect(await db.member.count({ where: { passwordHash: null } })).toBe(999);
+    const demo = await db.member.findFirstOrThrow({ where: { NOT: { passwordHash: null } } });
+    expect(demo.passwordHash).toMatch(/^\$argon2id\$/);
+  });
+
+  it('the documented dev password appears in no column of any identity table', async () => {
+    // Belt-and-braces against a plaintext leak into an unexpected column.
+    const rows = await db.$queryRawUnsafe<{ n: bigint }[]>(`
+      SELECT (SELECT COUNT(*) FROM "Staff"  WHERE "passwordHash" LIKE '%' || ? || '%')
+           + (SELECT COUNT(*) FROM "Member" WHERE "passwordHash" LIKE '%' || ? || '%')
+           + (SELECT COUNT(*) FROM "Staff"  WHERE "fullName" = ? OR "email" = ?) AS n;`,
+      DEV_PASSWORD, DEV_PASSWORD, DEV_PASSWORD, DEV_PASSWORD);
+    expect(Number(rows[0]?.n)).toBe(0);
   });
 
   it('uses only reserved, non-routable example domains', async () => {
@@ -119,6 +169,34 @@ describe('T-U-063 seeding is deterministic and reproducible', () => {
     });
     const after = await fingerprint();
     expect(after).toBe(before);
+  });
+});
+
+describe('T-U-064 the isolation machinery that protects T-U-063 actually works', () => {
+  /**
+   * T-U-063 is only meaningful if a leaked row would have been caught. Asserting
+   * the ABSENCE of leaks proves nothing on its own — an always-empty detector
+   * would pass identically. So this plants a row, proves the detector sees it,
+   * purges it, and proves the detector then reports clean.
+   */
+  it('detects a planted row, removes it, and reports clean afterwards', async () => {
+    await expectPristine(db, 'entry');
+
+    const branch = await db.branch.findFirstOrThrow();
+    await db.member.create({ data: { id: uid('mem'), memberCode: uid('C'),
+      fullName: 'Isolation Probe', email: `${uid('e')}@example.invalid`,
+      phone: '+910000000009', homeBranchId: branch.id } });
+
+    // 1. the detector sees it
+    expect(await findTestRows(db)).toEqual({ Member: 1 });
+    // 2. and expectPristine fails loudly, naming the table
+    await expect(expectPristine(db, 'exit')).rejects.toThrow(/TEST ISOLATION VIOLATION.*Member=1/s);
+    // 3. the purge removes exactly that row
+    expect(await purgeTestRows(db)).toBe(1);
+    // 4. and the database is back to the seeded baseline
+    expect(await findTestRows(db)).toEqual({});
+    expect(await db.member.count()).toBe(1000);
+    await expectPristine(db, 'exit');
   });
 });
 

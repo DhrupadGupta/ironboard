@@ -15,11 +15,19 @@ its test are complete. Phase 3 delivered the **database support** they will rest
 constraints, indexes and deterministic seed data — nothing more. Service, API, UI and
 acceptance tests do not exist.
 
-| Layer | Phase 3 state |
+| Layer | State after Phase 4A |
 |---|---|
-| Database support | ✅ 28 entities, 36 CHECK constraints, 2 partial unique indexes, 7 triggers, 63 passing DB tests |
-| Service / API / UI | 🔴 Not started |
+| Database support | ✅ 29 entities, 36 CHECK constraints, 2 partial unique indexes, 7 triggers, 141 passing DB tests |
+| **Authentication foundation** | ✅ Argon2id, sessions, `AC-11` activation mechanism, 8 endpoints, 83 tests — **🟦 infrastructure, counts toward NO academic requirement** |
+| Department service / API / UI | 🔴 Not started — 0 of ~48 department endpoints |
 | Acceptance tests (`AC-01`…`AC-25`) | 🔴 **0 / 25 — none written, none passing** |
+
+⚠️ **`AC-11` is the only criterion Phase 4A touched, and it is PARTIAL — not covered.** Its
+activation mechanism is implemented and tested (`T-A-020`…`T-A-026`, `T-A-049`), but the criterion
+says "activate the account and **send login details**": the notification is *queued* and **no
+dispatcher exists**, so nothing is sent. `NFR-11`'s admin-only guard is exercised (`T-A-042`) but
+`NFR-11` is verified only when `AC-11` has a passing acceptance test. Detail:
+`docs/security/AUTHENTICATION.md` §8.
 
 Database support by criterion — *support, not verification*:
 
@@ -34,7 +42,7 @@ Database support by criterion — *support, not verification*:
 | `AC-07` | `ProgressEntry(weightKg, measurements)` |
 | `AC-08` | `SessionSlot(kind='personal_training')` + trainer index |
 | `AC-10` | `MedicalRestriction` (`ENH-03`) + `TrainerAssignment` (`ENH-20`) for `NFR-10` |
-| `AC-11` | `Staff.status` pending→active + activation-token columns (no password transmitted) |
+| `AC-11` | `Staff.status` pending→active + activation-token columns (no password transmitted) — **Phase 4A implemented the mechanism**: `POST /staff/:id/approve` (admin-only), single-use 24 h token, `POST /auth/activate` sets an Argon2id hash. **Still PARTIAL — nothing is sent** |
 | `AC-12` | `Branch` with `disabled` status; `SET NULL` on `homeBranchId` |
 | `AC-13` | `Equipment` (`ENH-04`) + `MaintenanceSchedule` |
 | `AC-15` | Cross-module reads; branch is not a partition (`B-03`) |
@@ -254,7 +262,8 @@ Homepage: `Dept / 03` · "Administration" · badge `5 stories` ·
 | **HP** | "Approve new staff accounts" (line 354) |
 | **Sub-behaviours** | `FR-SUB-10` send login details |
 | **Implementation interpretation** | ⚠️ The requirement wording above is **preserved verbatim and is not rewritten**. Implementation sends the sign-in URL, the login identifier and the assigned role (genuine "login details") **plus a single-use link to set a password**, rather than emailing a password. Classified **ENGINEERING SECURITY IMPROVEMENT / IMPLEMENTATION INTERPRETATION** — see `docs/decisions/DEVIATIONS.md` §1. No NFR constrains credential transport. Reversible if a literal reading is required. |
-| **Depends on** | Auth/identity system (`AMB-03`, `ASM-02`/`ASM-03`) |
+| **Depends on** | Auth/identity system (`AMB-03`, `ASM-02`/`ASM-03`) — ✅ **now exists** (Phase 4A) |
+| **Phase 4A status** | 🟡 **PARTIAL.** Implemented: staff self-registration (`ENH-06`), admin-only approval enforced by the `staff:approve` permission (`NFR-11`, `T-A-042`), a single-use time-limited activation link, password set via Argon2id, sessions revoked on password set. **Missing: the "send" half** — the notification is queued to `NotificationOutbox` and no dispatcher exists. **Not VERIFIED.** No `AC-11` acceptance suite exists yet |
 | **Gaps** | ⚠️ **Foundational but underspecified.** Implies staff self-registration (`ACT-08`), an account lifecycle (pending → active), a **rejection** path (`INC-01`), and role assignment at approval — none stated. Sending login details implies credential generation/delivery, which raises a security concern not addressed by any NFR |
 | **Impl / Test** | ⬜ / ⬜ |
 
@@ -272,6 +281,7 @@ Homepage: `Dept / 03` · "Administration" · badge `5 stories` ·
 | **Sub-behaviours** | `FR-SUB-11` add / update / **disable** |
 | **Depends on** | — (structural root, alongside `FR-ADM-01`) |
 | **Gaps** | ⚠️ **`AMB-05` — highest-impact data-model ambiguity.** Are members, staff, equipment, plans and payments branch-scoped or global? `INC-09` — what happens to members attached to a disabled branch? `NFR-12` gives no branch count, so "efficiently" is untestable (`INC-07`) |
+| **Resolution** | ✅ `AMB-05` → **`B-03`: branch is a non-isolating descriptive attribute.** People carry a nullable `homeBranchId`; equipment/attendance NOT NULL; plans global; no branch filter on any query path. ✅ `INC-09` answered structurally — `homeBranchId` is `SET NULL`, so disabling a branch does not affect its members. ⚠️ `INC-07` still open: no branch count is sourced, so the `NFR-12` threshold is 🟦 engineering (ADR-012) |
 | **Impl / Test** | ⬜ / ⬜ |
 
 ### US-13 · Maintain equipment maintenance schedules
@@ -408,6 +418,7 @@ Homepage: `Dept / 04` · "Membership Mgmt." · badge `5 stories` ·
 | **Sub-behaviours** | `FR-SUB-19` filter Active / Expired |
 | **Depends on** | `FR-REC-01`, `FR-MEM-01` |
 | **Gaps** | ⚠️ **State-set conflict.** AC-20 filters on **two** states (Active, Expired) but AC-17 introduces **"Cancelled"** and AC-19 implies **"Expiring"**. `[LAB1]` never defines the full state set — this is the direct input to the required State Chart diagram (`DIA-07`). See `WF-02`, `ASM-13` |
+| **Resolution** | ✅ **`B-05`: exactly three persisted states — `ACTIVE`, `EXPIRED`, `CANCELLED`.** `EXPIRING` is a **derived predicate** over `expiresAt`, never stored, so `AC-20`'s two-state filter is satisfied without inventing a status the criterion does not mention. `ASM-13`'s four-state reading is **withdrawn**; ADR-013 is superseded. Enforced by CHECK + transition trigger + partial unique index |
 | **Impl / Test** | ⬜ / ⬜ |
 
 ---
@@ -568,16 +579,21 @@ Detail: `docs/requirements/ENH-19_MEMBERSHIP_CREATION.md`.
 Five acceptance criteria state a precondition that **no user story satisfies**. These are the
 most actionable gaps in Lab 1.
 
-| # | Precondition (verbatim) | AC | Data required | Who writes it? |
-|---|---|---|---|---|
-| 1 | "check-in data is recorded at the entrance" | AC-14 | Attendance events | **Undefined** — blocks US-05 *and* US-14 |
-| 2 | "a member has a health condition logged" | AC-10 | Medical restrictions | **Undefined** — blocks US-10 |
-| 3 | "a machine needs regular service" | AC-13 | Equipment register | **Undefined** — blocks US-13 |
-| 4 | "an approved refund request" | AC-24 | Refund requests + approval | **Undefined** — blocks US-24 |
-| 5 | "a new staff member registers for access" | AC-11 | Staff self-registration | **Undefined** — blocks US-11 |
+| # | Precondition (verbatim) | AC | Data required | Owner in source | Resolution (`B-04`) |
+|---|---|---|---|---|---|
+| 1 | "check-in data is recorded at the entrance" | AC-14 | Attendance events | **Undefined** — blocked US-05 *and* US-14 | ✅ `ENH-02` — `AttendanceEvent` + `AttendanceDaily` |
+| 2 | "a member has a health condition logged" | AC-10 | Medical restrictions | **Undefined** — blocked US-10 | ✅ `ENH-03` — `MedicalRestriction` |
+| 3 | "a machine needs regular service" | AC-13 | Equipment register | **Undefined** — blocked US-13 | ✅ `ENH-04` — `Equipment` + `MaintenanceSchedule` |
+| 4 | "an approved refund request" | AC-24 | Refund requests + approval | **Undefined** — blocked US-24 | ✅ **`ENH-05` WITHDRAWN** — approval is an *external* precondition, captured as data on `Refund` (`approvedByStaffId`, `approvedAt`, `approvalReference`). **No `RefundRequest` entity exists** |
+| 5 | "a new staff member registers for access" | AC-11 | Staff self-registration | **Undefined** — blocked US-11 | ✅ `ENH-06` — `Staff.status = 'pending'` + activation columns |
 
-Plus two implied-but-unowned records: **prospect** (AC-03) and **plan template library**
-(AC-06, "chooses or creates").
+Plus two implied-but-unowned records: **prospect** (AC-03) → ✅ `ENH-07` `Prospect`; and
+**plan template library** (AC-06, "chooses or creates") → ✅ `ENH-08` `WorkoutPlan.isTemplate`.
+
+> ✅ **`B-04` is RESOLVED and the tables exist.** **None of these six stories is blocked any
+> longer.** The write paths are *database-supported*; the service and API layers that expose
+> them are Phase 4 work. The unblocking entities are **enhancements** and never count toward
+> academic coverage. → `docs/decisions/B-04_API_DECISIONS.md`
 
 ---
 

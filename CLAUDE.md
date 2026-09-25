@@ -18,6 +18,10 @@ and a working application — both obligations are real, and they are tracked se
    screenshots for UI, measured numbers for performance.
 5. **Do not redesign the homepage.** `reference/design/gym-management-homepage-2.html` is the
    visual source of truth.
+6. **Never store, log or return a credential.** Passwords are Argon2id-hashed and never leave
+   `platform/auth/password.ts`; session and activation tokens are stored only as SHA-256 hashes;
+   API responses are built from `PublicActor`, never from a Prisma row. **Medical data must never
+   reach a log sink** (`NFR-10`). See `docs/security/AUTHENTICATION.md`.
 
 ## Where things live
 
@@ -50,23 +54,46 @@ and a working application — both obligations are real, and they are tracked se
 
 `US-nn ↔ AC-nn ↔ FR-…-nn ↔ NFR-nn` is a fixed 1:1 mapping for all 25. Never renumber.
 
-## Before implementing anything
+## Blocking decisions — five of six are RESOLVED
 
-Six decisions gate implementation (`docs/project/REQUIREMENT_GAP_ANALYSIS.md` §3) and are
-**unresolved**. Do not resolve them by assumption — escalate to the user.
+`docs/project/REQUIREMENT_GAP_ANALYSIS.md` §3 poses six decisions. **Five are decided and
+implemented. Do not reopen them.** Only `B-06` is open, and it gates labelling, not code.
 
-| ID | Decision |
-|---|---|
-| `B-01` | Do members log in, or is this staff-only? |
-| `B-02` | What is the authorisation model? |
-| `B-03` | Is branch a data-scoping boundary? |
-| `B-04` | Who creates the five missing record types? |
-| `B-05` | What is the membership state set? |
-| `B-06` | Which experiment numbering governs? |
+| ID | Decision | Status | Outcome |
+|---|---|---|---|
+| `B-01` | Do members log in? | ✅ **RESOLVED** | **Yes** — six roles including Member, tracked as `ENH-01`, excluded from academic coverage |
+| `B-02` | Authorisation model | ✅ **RESOLVED** | **Six roles, deny-by-default RBAC** (ADR-007); `NFR-10` and `NFR-11` are resource-level, not role-level |
+| `B-03` | Is branch a data-scoping boundary? | ✅ **RESOLVED** | **No** — descriptive attribute. `Member`/`Staff.homeBranchId` **nullable**; `Equipment`/attendance `branchId` NOT NULL; plans global; **no row-level isolation, no branch filter anywhere** |
+| `B-04` | Who creates the five missing record types? | ✅ **RESOLVED** | `ENH-02`/`03`/`04`/`06`/`07` implemented; **`ENH-05` (`RefundRequest`) WITHDRAWN** — approval is external, captured as data on `Refund` |
+| `B-05` | Membership state set | ✅ **RESOLVED** | **Exactly three** — `ACTIVE`, `EXPIRED`, `CANCELLED`. `EXPIRING` is derived, never stored |
+| `B-06` | Which experiment numbering governs? | ⚠️ **OPEN** | Escalate to the user/faculty. Affects submission labelling only — **mitigate by labelling per artefact, never by a bare number** |
 
-Five acceptance criteria read data that no user story creates — check-in events, medical
-restrictions, equipment records, refund requests and staff self-registration. Work depending
-on them is **blocked**, not merely unstarted.
+Records: `docs/decisions/B-03_DECISION.md`, `B-04_API_DECISIONS.md`,
+`B-05_MEMBERSHIP_STATE_MACHINE.md`; ADR-007, ADR-013, ADR-014.
+
+The five acceptance criteria that read data no user story creates — check-in events, medical
+restrictions, equipment records, refund approval and staff self-registration — are **no longer
+blocked**. `B-04` resolved every one; the tables exist and are seeded. What remains is service,
+API and UI work, and the unblocking entities are **enhancements** that never count toward
+academic coverage.
+
+## Implementation state — verify, never assume
+
+Measured on 2026-08-21; re-measure rather than trusting this table.
+
+| Fact | Value | How to check |
+|---|---|---|
+| Entities | **29** | `grep -c '^model ' server/prisma/schema.prisma` |
+| Tests | **224 passing** (141 database + 83 authentication) | `cd server && npm test` |
+| Skills | **6** | `ls .claude/skills` |
+| HTTP endpoints | **8**, all authentication | `docs/architecture/API_CONTRACTS.md` |
+| Authentication / authorisation | **implemented** (Phase 4A) — Argon2id, sessions, `AC-11` activation | `docs/security/AUTHENTICATION.md` |
+| Department service / API / frontend code | **none** | `ls server/src` → `db/`, `http/`, `platform/` only |
+| Mandatory academic diagrams | **0 of 11** (+ 0 of 1 written artefact) | `ls docs/diagrams` — both existing diagrams are enhancements |
+
+**Tests share one SQLite file.** A test that writes a row owns its removal: mint ids only via
+`uid()`, add new tables to `PURGE_ORDER`, and never write to `LedgerEntry`/`AuditEvent` outside
+a rolled-back transaction. The suite fails if anything leaks — see `tests/helpers.ts`.
 
 ## Environment
 

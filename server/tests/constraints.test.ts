@@ -5,12 +5,24 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { PrismaClient } from '@prisma/client';
-import { testDb, expectRejection, uid } from './helpers.js';
+import { testDb, expectRejection, uid, purgeTestRows, expectPristine } from './helpers.js';
 import { applyPragmas } from '../src/db/client.js';
 
 let db: PrismaClient;
-beforeAll(async () => { db = testDb(); await applyPragmas(db); });
-afterAll(async () => { await db.$disconnect(); });
+
+// This file creates persistent probe rows on purpose — the rejections it
+// asserts need real parents to hang off. They are removed at exit so no later
+// file ever counts them. See tests/helpers.ts for the isolation contract.
+beforeAll(async () => {
+  db = testDb();
+  await applyPragmas(db);
+  await expectPristine(db, 'entry');
+});
+afterAll(async () => {
+  await purgeTestRows(db);
+  await expectPristine(db, 'exit');
+  await db.$disconnect();
+});
 
 const newMember = async (): Promise<string> => {
   const b = await db.branch.findFirstOrThrow();
